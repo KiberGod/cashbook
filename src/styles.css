@@ -6,10 +6,10 @@
   --border-strong: #cdd2d9;
   --text: #1a1e23;
   --muted: #6a727c;
-  --accent: #2f6fd6;
-  --accent-hover: #255fbd;
+  --accent: #6741d9;
+  --accent-hover: #5a33c7;
   --accent-contrast: #ffffff;
-  --accent-soft: #e6eefb;
+  --accent-soft: #efeafd;
   --danger: #c7362f;
   --danger-soft: #fbeceb;
   --warn: #9a6400;
@@ -35,10 +35,11 @@
   --chart-grid: #e1e0d9;
   --chart-axis: #c3c2b7;
   --heat-0: #eef0f3;
-  --heat-1: #b7d3f6;
-  --heat-2: #6da7ec;
-  --heat-3: #2a78d6;
-  --heat-4: #184f95;
+  /* activity heatmap: one-hue ramp derived from the accent colour */
+  --heat-1: color-mix(in oklab, var(--accent) 22%, var(--heat-0));
+  --heat-2: color-mix(in oklab, var(--accent) 50%, var(--heat-0));
+  --heat-3: var(--accent);
+  --heat-4: color-mix(in oklab, var(--accent), #000 32%);
 
   --form-cash: #1f7a3a;
   --form-cash-bg: #e3f3e8;
@@ -58,10 +59,10 @@
   --border-strong: #3a4047;
   --text: #e8eaed;
   --muted: #9aa2ab;
-  --accent: #5b9cf0;
-  --accent-hover: #75acf3;
-  --accent-contrast: #0b1626;
-  --accent-soft: #1b2a40;
+  --accent: #a68cf5;
+  --accent-hover: #b9a3f8;
+  --accent-contrast: #160f2b;
+  --accent-soft: #2a2145;
   --danger: #f0716a;
   --danger-soft: #3a2220;
   --warn: #e7b65c;
@@ -83,10 +84,10 @@
   --chart-grid: #2c2c2a;
   --chart-axis: #383835;
   --heat-0: #23272c;
-  --heat-1: #184f95;
-  --heat-2: #256abf;
-  --heat-3: #3987e5;
-  --heat-4: #86b6ef;
+  --heat-1: color-mix(in oklab, var(--accent) 28%, var(--heat-0));
+  --heat-2: color-mix(in oklab, var(--accent) 50%, var(--heat-0));
+  --heat-3: color-mix(in oklab, var(--accent) 75%, var(--heat-0));
+  --heat-4: var(--accent);
 
   --form-cash: #6fd08c;
   --form-cash-bg: #1c3324;
@@ -95,6 +96,72 @@
   --form-crypto: #f0b45a;
   --form-crypto-bg: #3a2b14;
   color-scheme: dark;
+}
+
+/* Accent colour themes (Settings -> Colour); violet is the default above. Set on <html data-accent>. */
+:root[data-accent='blue'] {
+  --accent: #2860c2;
+  --accent-hover: #2152a8;
+  --accent-soft: #e6eefb;
+}
+
+:root[data-theme='dark'][data-accent='blue'] {
+  --accent: #5b9cf0;
+  --accent-hover: #75acf3;
+  --accent-contrast: #0b1626;
+  --accent-soft: #1b2a40;
+}
+
+:root[data-accent='teal'] {
+  --accent: #0f766e;
+  --accent-hover: #0b625b;
+  --accent-soft: #e0f3f1;
+}
+
+:root[data-theme='dark'][data-accent='teal'] {
+  --accent: #3cc4b4;
+  --accent-hover: #5fd1c3;
+  --accent-contrast: #06201d;
+  --accent-soft: #123430;
+}
+
+:root[data-accent='green'] {
+  --accent: #1e7d3a;
+  --accent-hover: #186a31;
+  --accent-soft: #e3f3e7;
+}
+
+:root[data-theme='dark'][data-accent='green'] {
+  --accent: #5ac47a;
+  --accent-hover: #76d091;
+  --accent-contrast: #0a1f10;
+  --accent-soft: #163221;
+}
+
+:root[data-accent='orange'] {
+  --accent: #c2410c;
+  --accent-hover: #a8380a;
+  --accent-soft: #fdece3;
+}
+
+:root[data-theme='dark'][data-accent='orange'] {
+  --accent: #f08a4b;
+  --accent-hover: #f3a06c;
+  --accent-contrast: #2a1206;
+  --accent-soft: #3a2216;
+}
+
+:root[data-accent='rose'] {
+  --accent: #be185d;
+  --accent-hover: #a3144f;
+  --accent-soft: #fce7f0;
+}
+
+:root[data-theme='dark'][data-accent='rose'] {
+  --accent: #f06d9e;
+  --accent-hover: #f38bb2;
+  --accent-contrast: #2a0a17;
+  --accent-soft: #3d1a2a;
 }
 
 *,
@@ -863,17 +930,6 @@ select,
 
 .key-fields:disabled {
   opacity: 0.5;
-}
-
-.key-save-hint {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-}
-
-.key-save-hint svg {
-  flex-shrink: 0;
-  margin-top: 3px;
 }
 
 .subform {
@@ -2130,7 +2186,7 @@ select,
 }
 
 :root[data-theme='dark'] .cal-month.l4 {
-  color: #0b1626;
+  color: var(--accent-contrast);
 }
 
 .cal-foot {
@@ -2576,9 +2632,10 @@ select,
 .gate-icon {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -2596,6 +2653,61 @@ select,
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.gate-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+/* the name sits beside the heading when it fits, otherwise moves below it (cut with an ellipsis only if longer than the card) */
+
+/* the heading keeps its width; a long name is cut with an ellipsis (full name on hover) */
+.gate-title-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .gate-title-main {
+    flex-shrink: 1;
+  }
+
+  .gate-title .sheet-chip {
+    max-width: 100%;
+  }
+}
+
+.sheet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.sheet-chip svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.sheet-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sheet-name {
@@ -2792,15 +2904,99 @@ select,
   margin-top: 2px;
 }
 
-.raw-wrap {
-  max-height: 70dvh;
+/* ---------- accent colour picker ---------- */
+
+.settings-sub {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
 }
 
-.raw-table td {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.78rem;
-  max-width: 520px;
-  overflow-wrap: anywhere;
+.accent-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--border);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.swatch:hover {
+  transform: scale(1.08);
+}
+
+.swatch[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text);
+}
+
+:root[data-theme='dark'] .swatch {
+  color: #111316;
+}
+
+.swatch-violet {
+  background: #6741d9;
+}
+
+:root[data-theme='dark'] .swatch-violet {
+  background: #a68cf5;
+}
+
+.swatch-blue {
+  background: #2860c2;
+}
+
+:root[data-theme='dark'] .swatch-blue {
+  background: #5b9cf0;
+}
+
+.swatch-teal {
+  background: #0f766e;
+}
+
+:root[data-theme='dark'] .swatch-teal {
+  background: #3cc4b4;
+}
+
+.swatch-green {
+  background: #1e7d3a;
+}
+
+:root[data-theme='dark'] .swatch-green {
+  background: #5ac47a;
+}
+
+.swatch-orange {
+  background: #c2410c;
+}
+
+:root[data-theme='dark'] .swatch-orange {
+  background: #f08a4b;
+}
+
+.swatch-rose {
+  background: #be185d;
+}
+
+:root[data-theme='dark'] .swatch-rose {
+  background: #f06d9e;
 }
 
 /* ---------- responsive ---------- */

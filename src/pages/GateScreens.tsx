@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
+import { AgreeCheck, DontTouchNote, KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
 import { Logo } from '../components/Layout';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -26,6 +26,24 @@ function GateShell({ children, wide = false }: { children: ReactNode; wide?: boo
         {children}
       </div>
       <p className="gate-version">Cashbook v{APP_VERSION}</p>
+    </div>
+  );
+}
+
+/** Screen heading with the connected spreadsheet's name beside it. */
+function GateTitle({ title, sheet, icon }: { title: string; sheet?: string; icon?: ReactNode }) {
+  return (
+    <div className="gate-title">
+      <div className="gate-title-main">
+        {icon && <span className="gate-icon">{icon}</span>}
+        <h1>{title}</h1>
+      </div>
+      {sheet && (
+        <span className="sheet-chip" title={sheet}>
+          <Icon name="table" size={15} />
+          <span>{sheet}</span>
+        </span>
+      )}
     </div>
   );
 }
@@ -84,7 +102,6 @@ export function ConnectScreen() {
             autoComplete="off"
             required
           />
-          {import.meta.env.DEV && <span className="field-hint">{t('connect.devHint')}</span>}
         </label>
         {error && <ErrorDetails error={error} />}
         <button type="submit" className="btn btn-primary btn-block" disabled={busy || !link.trim()}>
@@ -133,15 +150,9 @@ export function AuthScreen() {
     void signIn().finally(() => setBusy(false));
   };
   return (
-    <GateShell>
-      <h1>{t('auth.title')}</h1>
+    <GateShell wide>
+      <GateTitle title={t('auth.title')} sheet={title} />
       <p className="muted">{t('auth.text')}</p>
-      {title && (
-        <p className="sheet-name">
-          <Icon name="table" size={18} />
-          {title}
-        </p>
-      )}
       {error && <ErrorDetails error={error} />}
       <div className="form">
         <button type="button" className="btn btn-primary btn-block" onClick={go} disabled={busy}>
@@ -174,18 +185,9 @@ export function UnlockScreen() {
   };
 
   return (
-    <GateShell>
-      <div className="gate-icon">
-        <Icon name="lock" size={26} />
-      </div>
-      <h1>{t('unlock.title')}</h1>
+    <GateShell wide>
+      <GateTitle title={t('unlock.title')} sheet={title} icon={<Icon name="lock" size={22} />} />
       <p className="muted">{t('unlock.text')}</p>
-      {title && (
-        <p className="sheet-name">
-          <Icon name="table" size={18} />
-          {title}
-        </p>
-      )}
       <form className="form" onSubmit={submit} noValidate>
         <KeyInput value={key} onChange={(v) => (setKey(v), setWrong(false))} label={t('unlock.label')} autoFocus error={wrong ? t('unlock.wrong') : null} />
         <button type="submit" className="btn btn-primary btn-block" disabled={busy || !key}>
@@ -207,7 +209,7 @@ export function SetupScreen() {
   const error = useStore((s) => s.error);
   const [mode, setMode] = useState<'choose' | 'encrypt' | 'plain'>('choose');
   const newKey = useNewKey();
-  const canCreate = mode === 'plain' || newKey.valid;
+  const canCreate = mode === 'plain' ? newKey.agree : newKey.valid;
 
   const create = (e: FormEvent) => {
     e.preventDefault();
@@ -218,14 +220,8 @@ export function SetupScreen() {
 
   return (
     <GateShell wide>
-      <h1>{t('setup.title')}</h1>
+      <GateTitle title={t('setup.title')} sheet={title} />
       <p className="muted">{t('setup.text')}</p>
-      {title && (
-        <p className="sheet-name">
-          <Icon name="table" size={18} />
-          {title}
-        </p>
-      )}
 
       {mode === 'choose' && (
         <div className="choice-list">
@@ -257,15 +253,15 @@ export function SetupScreen() {
           {mode === 'encrypt' ? (
             <NewKeyFields state={newKey} />
           ) : (
-            <div className="info-box">
-              <Icon name="info" />
-              <p>{t('setup.plainWarn')}</p>
-            </div>
+            <>
+              <div className="info-box">
+                <Icon name="info" />
+                <p>{t('setup.plainWarn')}</p>
+              </div>
+              <DontTouchNote />
+              <AgreeCheck checked={newKey.agree} onChange={newKey.setAgree} />
+            </>
           )}
-          <div className="info-box">
-            <Icon name="table" />
-            <p>{t('setup.dontTouch')}</p>
-          </div>
           {error && <ErrorDetails error={error} />}
           <div className="button-row">
             <button type="button" className="btn" onClick={() => setMode('choose')} disabled={busy}>
@@ -311,7 +307,6 @@ export function LoadingScreen() {
   const { t } = useI18n();
   return (
     <div className="loading-screen" role="status">
-      <Logo size={44} />
       <span className="spinner spinner-lg" />
       <p className="muted">{t('loading')}</p>
     </div>

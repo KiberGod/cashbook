@@ -53,7 +53,29 @@ export function useNewKey() {
   return { agree, setAgree, key, setKey, repeat, setRepeat, touched, setTouched, problem, valid: agree && !problem && key === repeat };
 }
 
-/** Loss warning, responsibility checkbox, the key twice and the hint to save it. */
+/** "Don't edit the spreadsheet by hand" notice. */
+export function DontTouchNote() {
+  const { t } = useI18n();
+  return (
+    <div className="info-box">
+      <Icon name="table" />
+      <p>{t('setup.dontTouch')}</p>
+    </div>
+  );
+}
+
+/** Consent to the terms of use - required before a spreadsheet is set up or encrypted. */
+export function AgreeCheck({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  const { t } = useI18n();
+  return (
+    <label className="check">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span>{t('setup.agree')}</span>
+    </label>
+  );
+}
+
+/** Loss warning, consent checkbox and the key entered twice. */
 export function NewKeyFields({ state }: { state: ReturnType<typeof useNewKey> }) {
   const { t } = useI18n();
   const { agree, setAgree, key, setKey, repeat, setRepeat, touched, setTouched, problem } = state;
@@ -68,16 +90,11 @@ export function NewKeyFields({ state }: { state: ReturnType<typeof useNewKey> })
           <p>{t('setup.warnText')}</p>
         </div>
       </div>
-      <label className="check">
-        <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-        <span>{t('setup.agree')}</span>
-      </label>
+      <DontTouchNote />
+      <AgreeCheck checked={agree} onChange={setAgree} />
       <fieldset className="key-fields" disabled={!agree}>
         <KeyInput value={key} onChange={setKey} label={t('setup.key')} error={keyError} hint={t('key.rules', { min: KEY_MIN, max: KEY_MAX })} />
         <KeyInput value={repeat} onChange={(v) => (setRepeat(v), setTouched(true))} label={t('setup.repeat')} error={repeatError} />
-        <p className="field-hint key-save-hint">
-          <Icon name="key" size={14} /> {t('setup.saveHint')}
-        </p>
       </fieldset>
     </>
   );

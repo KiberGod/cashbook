@@ -10,7 +10,7 @@ export type Route =
   | { name: 'list'; kind: ListKind }
   | { name: 'detail'; kind: ListKind; id: string }
   | { name: 'settings' }
-  | { name: 'raw' };
+;
 
 const LIST_KINDS: ListKind[] = ['assets', 'services', 'contacts', 'accounts', 'categories', 'debts'];
 
@@ -27,8 +27,6 @@ export function parseHash(hash: string): Route {
       return { name: 'transactions', query: q };
     case 'settings':
       return { name: 'settings' };
-    case 'raw':
-      return { name: 'raw' };
     default:
       return { name: 'dashboard' };
   }
@@ -49,7 +47,6 @@ export const href = {
   list: (kind: ListKind) => `#/${kind}`,
   detail: (kind: ListKind, id: string) => `#/${kind}/${encodeURIComponent(id)}`,
   settings: () => '#/settings',
-  raw: () => '#/raw',
 };
 
 // How many history entries the app itself pushed in this page session.

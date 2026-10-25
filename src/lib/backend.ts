@@ -1,7 +1,6 @@
 import { AppError } from './errors';
 import { CIPHER_NAME, KDF_NAME, createKey, decryptText, encryptText, isEncryptedCell, keyMatches, unlockKey } from './crypto';
 import { getValidToken } from './googleAuth';
-import { LocalSheets, isLocalSheetId } from './localSheets';
 import { migrate, type RawTables } from './migrations';
 import {
   APP_NAME,
@@ -82,11 +81,6 @@ export class SheetBackend {
 
   get encrypted() {
     return !!this.meta && this.meta.encryption !== 'none';
-  }
-
-  /** dev only: the local sheet behind a demo link */
-  get local(): LocalSheets | null {
-    return this.io instanceof LocalSheets ? this.io : null;
   }
 
   structure(): StructureInfo {
@@ -527,7 +521,5 @@ export class SheetBackend {
 }
 
 export function createBackend(spreadsheetId: string): SheetBackend {
-  return new SheetBackend(isLocalSheetId(spreadsheetId) ? new LocalSheets(spreadsheetId) : new SheetsApi(spreadsheetId, getValidToken));
+  return new SheetBackend(new SheetsApi(spreadsheetId, getValidToken));
 }
-
-export const needsGoogle = (spreadsheetId: string) => !isLocalSheetId(spreadsheetId);

@@ -1,9 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import type { Lang } from '../i18n';
-import { createBackend, needsGoogle, type Dirty, type SheetBackend } from '../lib/backend';
+import { createBackend, type Dirty, type SheetBackend } from '../lib/backend';
 import { AppError, toAppError } from '../lib/errors';
 import { CLIENT_ID, forgetToken, getValidToken, loadGis, requestToken, signOut } from '../lib/googleAuth';
-import { isLocalSheetId } from '../lib/localSheets';
 import { presetData } from '../lib/presets';
 import { InvalidStructureError } from '../lib/schema';
 import { parseSpreadsheetId } from '../lib/sheetsApi';
@@ -131,17 +130,17 @@ export async function init() {
   if (CLIENT_ID) loadGis().catch(() => {}); // preload so the sign-in popup opens instantly on click
   const sheet = settings.getSheet();
   if (!sheet) return set({ phase: 'connect', error: CLIENT_ID ? null : new AppError('noClientId') });
-  if (needsGoogle(sheet.id) && !getValidToken()) return set({ phase: 'auth', title: sheet.title ?? '' });
+  if (!getValidToken()) return set({ phase: 'auth', title: sheet.title ?? '' });
   await reload({ initial: true });
 }
 
 /** First connection of a spreadsheet link. Must be called from a click handler. */
 export async function connect(link: string) {
-  const id = parseSpreadsheetId(link) ?? (isLocalSheetId(link.trim()) ? link.trim() : null);
+  const id = parseSpreadsheetId(link);
   if (!id) return set({ error: new AppError('badLink') });
   set({ error: null, refreshing: true });
   try {
-    if (needsGoogle(id) && !getValidToken()) await requestToken();
+    if (!getValidToken()) await requestToken();
     backend = null;
     settings.setSheet({ id, url: link.trim() });
     await open(id, true);
@@ -175,7 +174,7 @@ export async function signIn() {
 export async function reload({ initial = false } = {}) {
   const sheet = settings.getSheet();
   if (!sheet) return set({ phase: 'connect' });
-  if (needsGoogle(sheet.id) && !getValidToken()) {
+  if (!getValidToken()) {
     if (initial || state.phase !== 'ready') return set({ phase: 'auth', title: sheet.title ?? '' });
     return set({ sync: 'error', syncError: new AppError('auth') });
   }
@@ -274,8 +273,7 @@ export async function flush(): Promise<void> {
     if (!hasDirty()) return;
   }
   if (!backend || !hasDirty()) return;
-  const sheet = settings.getSheet();
-  if (sheet && needsGoogle(sheet.id) && !getValidToken()) {
+  if (!getValidToken()) {
     return set({ sync: 'error', syncError: new AppError('auth') });
   }
 
@@ -364,7 +362,6 @@ document.addEventListener('visibilitychange', () => {
   // Coming back to the tab (e.g. phone after using the PC): pick up remote edits.
   if (document.visibilityState !== 'visible') return;
   if (state.phase !== 'ready' || state.refreshing || hasUnsavedChanges() || state.sync === 'error') return;
-  const sheet = settings.getSheet();
-  if (!sheet || (needsGoogle(sheet.id) && !getValidToken())) return;
+  if (!settings.getSheet() || !getValidToken()) return;
   if (Date.now() - state.loadedAt > AUTO_REFRESH_AFTER_MS) void reload();
 });

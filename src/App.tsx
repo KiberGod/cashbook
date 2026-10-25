@@ -9,7 +9,6 @@ import { ContactDetail, ContactsPage } from './pages/ContactsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { DebtDetail, DebtsPage } from './pages/DebtsPage';
 import { AuthScreen, ConnectScreen, ErrorScreen, LoadingScreen, SetupScreen, UnlockScreen } from './pages/GateScreens';
-import { RawPage } from './pages/RawPage';
 import { ServiceDetail, ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TransactionsPage } from './pages/TransactionsPage';
@@ -51,8 +50,6 @@ function Page({ route }: { route: Route }) {
     }
     case 'settings':
       return <SettingsPage />;
-    case 'raw':
-      return <RawPage />;
   }
 }
 

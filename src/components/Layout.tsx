@@ -10,10 +10,9 @@ import { openTxForm, useUi } from '../store/ui';
 export function Logo({ size = 32 }: { size?: number }) {
   return (
     <span className="logo" aria-hidden="true" style={{ width: size, height: size }}>
-      <svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
-        <path d="M5 17a3 3 0 0 1 3-3h11" />
-        <path d="M12 7.5v4M10.5 8.5h2.2a1 1 0 0 1 0 2h-1.4a1 1 0 0 0 0 2h2.2" strokeWidth="1.6" />
+      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+        <path d="M12 3 3 17.5 12 21l9-3.5z" />
+        <path d="M12 3v18" />
       </svg>
     </span>
   );

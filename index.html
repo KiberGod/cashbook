@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f6f7f9" />
     <script>
-      // apply the saved theme before first paint (same logic as src/lib/theme.ts)
+      // apply the saved theme and accent colour before first paint (same logic as src/lib/theme.ts)
       try {
         var pref = JSON.parse(localStorage.getItem('cashbook.theme') || '"system"');
         var dark = pref === 'dark' || (pref !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        var accent = JSON.parse(localStorage.getItem('cashbook.accent') || '"violet"');
+        if (accent !== 'violet') document.documentElement.dataset.accent = accent;
       } catch (e) {}
     </script>
     <meta name="description" content="Cashbook - personal finance on top of your Google Sheets" />

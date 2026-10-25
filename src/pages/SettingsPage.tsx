@@ -8,10 +8,9 @@ import { LANGUAGES, useI18n, type Lang } from '../i18n';
 import { toAppError, type AppError } from '../lib/errors';
 import { SCHEMA_VERSION, SHEETS } from '../lib/schema';
 import { settings } from '../lib/storage';
-import { getThemePref, setThemePref, type ThemePref } from '../lib/theme';
+import { ACCENTS, getAccent, getThemePref, setAccent, setThemePref, type Accent, type ThemePref } from '../lib/theme';
 import { ENTITY_KINDS, type Data } from '../lib/types';
 import { APP_VERSION } from '../lib/version';
-import { href } from '../router';
 import { disconnect, getBackend, logout, reload, replaceAllData, setEncryption, useStore, verifyKey } from '../store/store';
 import { showToast } from '../store/ui';
 import { ErrorDetails } from './GateScreens';
@@ -41,6 +40,35 @@ function ThemeSwitch() {
       }}
       options={(['system', 'light', 'dark'] as const).map((o) => ({ value: o, label: t(`theme.${o}`) }))}
     />
+  );
+}
+
+function AccentPicker() {
+  const { t } = useI18n();
+  const [accent, setValue] = useState<Accent>(getAccent);
+  return (
+    <div className="accent-picker">
+      <div className="swatches" role="radiogroup" aria-label={t('settings.accent')}>
+        {ACCENTS.map((a) => (
+          <button
+            key={a}
+            type="button"
+            role="radio"
+            aria-checked={a === accent}
+            aria-label={t(`accent.${a}`)}
+            title={t(`accent.${a}`)}
+            className={`swatch swatch-${a}`}
+            onClick={() => {
+              setAccent(a);
+              setValue(a);
+            }}
+          >
+            {a === accent && <Icon name="check" size={16} />}
+          </button>
+        ))}
+      </div>
+      <span className="muted">{t(`accent.${accent}`)}</span>
+    </div>
   );
 }
 
@@ -134,7 +162,6 @@ export function SettingsPage() {
   const structure = getBackend()?.structure();
   const [confirm, setConfirm] = useState<'change' | 'signOut' | 'seed' | 'encryption' | null>(null);
   const seedLoader = devSeed['/dev-local/seed.ts'] as (typeof devSeed)[string] | undefined;
-  const isLocal = !!getBackend()?.local;
 
   return (
     <>
@@ -148,23 +175,20 @@ export function SettingsPage() {
         <section className="panel">
           <h2>{t('settings.theme')}</h2>
           <ThemeSwitch />
+          <h3 className="settings-sub">{t('settings.accent')}</h3>
+          <AccentPicker />
         </section>
+
 
         <section className="panel">
           <h2>{t('settings.spreadsheet')}</h2>
           {sheet && (
             <p className="sheet-name">
               <Icon name="table" size={18} />
-              {isLocal ? (
-                <span>{title || sheet.id}</span>
-              ) : (
-                <>
-                  <a href={`https://docs.google.com/spreadsheets/d/${sheet.id}/edit`} target="_blank" rel="noreferrer">
-                    {title || sheet.id}
-                  </a>
-                  <Icon name="external" size={14} />
-                </>
-              )}
+              <a href={`https://docs.google.com/spreadsheets/d/${sheet.id}/edit`} target="_blank" rel="noreferrer">
+                {title || sheet.id}
+              </a>
+              <Icon name="external" size={14} />
             </p>
           )}
           <div className="button-row">
@@ -276,12 +300,6 @@ export function SettingsPage() {
                   <Icon name="star" size={18} />
                   {t('dev.seed')}
                 </button>
-              )}
-              {isLocal && (
-                <a className="btn" href={href.raw()}>
-                  <Icon name="table" size={18} />
-                  {t('dev.raw')}
-                </a>
               )}
             </div>
             <p className="field-hint">{tn('dev.counts', data.transactions.length)}</p>
