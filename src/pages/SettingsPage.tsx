@@ -1,17 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { Segmented } from '../components/bits';
 import { KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
-import { PageHead } from '../components/Layout';
+import { PageHead, SheetsMark } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { BrandIcon, Icon } from '../icons/ui';
 import { LANGUAGES, useI18n, type Lang } from '../i18n';
 import { toAppError, type AppError } from '../lib/errors';
-import { SCHEMA_VERSION, SHEETS } from '../lib/schema';
 import { settings } from '../lib/storage';
 import { ACCENTS, getAccent, getThemePref, setAccent, setThemePref, type Accent, type ThemePref } from '../lib/theme';
-import { ENTITY_KINDS, type Data } from '../lib/types';
+import type { Data } from '../lib/types';
 import { APP_VERSION } from '../lib/version';
-import { disconnect, getBackend, logout, reload, replaceAllData, setEncryption, useStore, verifyKey } from '../store/store';
+import { disconnect, logout, reload, replaceAllData, setEncryption, useStore, verifyKey } from '../store/store';
 import { showToast } from '../store/ui';
 import { ErrorDetails } from './GateScreens';
 
@@ -47,27 +46,24 @@ function AccentPicker() {
   const { t } = useI18n();
   const [accent, setValue] = useState<Accent>(getAccent);
   return (
-    <div className="accent-picker">
-      <div className="swatches" role="radiogroup" aria-label={t('settings.accent')}>
-        {ACCENTS.map((a) => (
-          <button
-            key={a}
-            type="button"
-            role="radio"
-            aria-checked={a === accent}
-            aria-label={t(`accent.${a}`)}
-            title={t(`accent.${a}`)}
-            className={`swatch swatch-${a}`}
-            onClick={() => {
-              setAccent(a);
-              setValue(a);
-            }}
-          >
-            {a === accent && <Icon name="check" size={16} />}
-          </button>
-        ))}
-      </div>
-      <span className="muted">{t(`accent.${accent}`)}</span>
+    <div className="swatches" role="radiogroup" aria-label={t('settings.accent')}>
+      {ACCENTS.map((a) => (
+        <button
+          key={a}
+          type="button"
+          role="radio"
+          aria-checked={a === accent}
+          aria-label={t(`accent.${a}`)}
+          title={t(`accent.${a}`)}
+          className={`swatch swatch-${a}`}
+          onClick={() => {
+            setAccent(a);
+            setValue(a);
+          }}
+        >
+          {a === accent && <Icon name="check" size={16} />}
+        </button>
+      ))}
     </div>
   );
 }
@@ -153,13 +149,12 @@ function EncryptionDialog({ encrypted, onClose }: { encrypted: boolean; onClose:
 const devSeed = import.meta.env.DEV ? import.meta.glob<{ generate: (d: Data) => Data }>('/dev-local/seed.ts') : {};
 
 export function SettingsPage() {
-  const { t, tn, dateTime } = useI18n();
+  const { t, tn } = useI18n();
   const title = useStore((s) => s.title);
   const refreshing = useStore((s) => s.refreshing);
   const encrypted = useStore((s) => s.encrypted);
   const data = useStore((s) => s.data);
   const sheet = settings.getSheet();
-  const structure = getBackend()?.structure();
   const [confirm, setConfirm] = useState<'change' | 'signOut' | 'seed' | 'encryption' | null>(null);
   const seedLoader = devSeed['/dev-local/seed.ts'] as (typeof devSeed)[string] | undefined;
 
@@ -175,16 +170,18 @@ export function SettingsPage() {
         <section className="panel">
           <h2>{t('settings.theme')}</h2>
           <ThemeSwitch />
-          <h3 className="settings-sub">{t('settings.accent')}</h3>
-          <AccentPicker />
         </section>
 
+        <section className="panel">
+          <h2>{t('settings.accent')}</h2>
+          <AccentPicker />
+        </section>
 
         <section className="panel">
           <h2>{t('settings.spreadsheet')}</h2>
           {sheet && (
             <p className="sheet-name">
-              <Icon name="table" size={18} />
+              <SheetsMark />
               <a href={`https://docs.google.com/spreadsheets/d/${sheet.id}/edit`} target="_blank" rel="noreferrer">
                 {title || sheet.id}
               </a>
@@ -192,7 +189,7 @@ export function SettingsPage() {
             </p>
           )}
           <div className="button-row">
-            <button type="button" className="btn" onClick={() => void reload()} disabled={refreshing}>
+            <button type="button" className={`btn ${refreshing ? 'spin' : ''}`} onClick={() => void reload()} disabled={refreshing}>
               <Icon name="refresh" size={18} />
               {t('settings.reload')}
             </button>
@@ -205,15 +202,14 @@ export function SettingsPage() {
               {t('settings.signOut')}
             </button>
           </div>
-          <p className="field-hint">{t('settings.signOutHint')}</p>
         </section>
 
         <section className="panel">
-          <h2>{t('settings.structure')}</h2>
+          <h2>{t('settings.security')}</h2>
           <div className={encrypted ? 'enc-status on' : 'enc-status'}>
             <Icon name={encrypted ? 'lock' : 'unlock'} size={18} />
             <div>
-              <strong>{encrypted ? t('enc.on') : t('enc.off')}</strong>
+              <strong>{encrypted ? t('settings.encOnTitle') : t('enc.off')}</strong>
               <p className="muted">{encrypted ? t('settings.encOnText') : t('settings.encOffText')}</p>
             </div>
           </div>
@@ -223,58 +219,12 @@ export function SettingsPage() {
               {t(encrypted ? 'enc.disable' : 'enc.enable')}
             </button>
           </div>
-          <dl className="kv">
-            <dt>{t('settings.schema')}</dt>
-            <dd>
-              {structure?.schema ?? SCHEMA_VERSION}
-              <span className="muted"> · {t('settings.appVersion', { v: APP_VERSION })}</span>
-            </dd>
-            {structure?.createdAt && (
-              <>
-                <dt>{t('settings.created')}</dt>
-                <dd>{dateTime(structure.createdAt)}</dd>
-              </>
-            )}
-          </dl>
-          <table className="table table-compact">
-            <thead>
-              <tr>
-                <th>{t('settings.sheet')}</th>
-                <th>{t('settings.content')}</th>
-                <th className="num">{t('settings.records')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  <code>{SHEETS.meta}</code>
-                </td>
-                <td className="muted">{t('settings.sheetMeta')}</td>
-                <td className="num">—</td>
-              </tr>
-              {ENTITY_KINDS.map((k) => (
-                <tr key={k}>
-                  <td>
-                    <code>{SHEETS[k]}</code>
-                  </td>
-                  <td className="muted">{t(`nav.${k}`)}</td>
-                  <td className="num">{data[k].length}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="info-box">
-            <Icon name="alert" />
-            <p>{t('setup.dontTouch')}</p>
-          </div>
         </section>
 
         <section className="panel">
           <h2>{t('settings.about')}</h2>
           <p className="muted">{t('settings.aboutText')}</p>
-          <p className="muted">
-            Cashbook · {t('settings.version', { v: APP_VERSION })}
-          </p>
+          <p className="muted">{t('settings.version', { v: APP_VERSION })}</p>
           <p className="muted">
             {t('settings.developer')}: <strong className="developer">kiber_god</strong>
           </p>

@@ -86,8 +86,6 @@ function backendOf(sheetId: string): SheetBackend {
   return backend;
 }
 
-export const getBackend = () => backend;
-
 function ready(data: Data, title: string) {
   dirty = new Map();
   set({

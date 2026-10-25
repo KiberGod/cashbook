@@ -390,12 +390,61 @@ mark.hl {
 
 .topbar-actions {
   margin-left: auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
+.topbar-actions > .btn {
+  flex-shrink: 0;
+}
+
+.sheet-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: min(340px, 50vw);
+  height: 34px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sheet-status:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.sheet-status:disabled {
+  cursor: default;
+}
+
+.sheets-mark {
+  flex-shrink: 0;
+}
+
+.sheet-status .sync {
+  width: 20px;
+}
+
+.sheet-status-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sync {
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 28px;
@@ -2905,20 +2954,6 @@ select,
 }
 
 /* ---------- accent colour picker ---------- */
-
-.settings-sub {
-  margin-top: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.accent-picker {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-}
 
 .swatches {
   display: flex;

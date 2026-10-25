@@ -47,14 +47,6 @@ export type OpenResult =
 /** Which entities changed since the last save, per kind. */
 export type Dirty = Map<EntityKind, Set<string>>;
 
-export interface StructureInfo {
-  title: string;
-  encrypted: boolean;
-  schema: number;
-  createdAt: string;
-  rows: Record<EntityKind, number>;
-}
-
 /**
  * Reads and writes the spreadsheet. Records are written row by row: a changed entity
  * rewrites only its own row, a new one takes a free row, a deleted one blanks its row
@@ -63,7 +55,6 @@ export interface StructureInfo {
  */
 export class SheetBackend {
   private io: SheetIO;
-  private title = '';
   private meta: MetaInfo | null = null;
   private key: CryptoKey | null = null;
   private raw: Partial<Record<SheetKey, Rows>> = {};
@@ -83,18 +74,6 @@ export class SheetBackend {
     return !!this.meta && this.meta.encryption !== 'none';
   }
 
-  structure(): StructureInfo {
-    const rows = {} as Record<EntityKind, number>;
-    for (const k of ENTITY_KINDS) rows[k] = this.rowOf.get(k)?.size ?? 0;
-    return {
-      title: this.title,
-      encrypted: this.encrypted,
-      schema: this.meta?.schema ?? SCHEMA_VERSION,
-      createdAt: this.meta?.createdAt ?? '',
-      rows,
-    };
-  }
-
   /**
    * Reads everything in one request. A blank file needs setup, an encrypted one needs
    * the key (see unlock); a plain one is decoded and validated right away.
@@ -102,7 +81,6 @@ export class SheetBackend {
    */
   async open({ verifyWrite }: { verifyWrite: boolean }): Promise<OpenResult> {
     const info = await this.io.info();
-    this.title = info.title;
     const byTitle = new Map(info.sheets.map((s) => [s.title, s]));
     const own = new Set(Object.values(SHEETS));
     const present = ALL_KEYS.filter((k) => byTitle.has(SHEETS[k]));
