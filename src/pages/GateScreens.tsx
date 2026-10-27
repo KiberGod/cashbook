@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { AgreeCheck, DontTouchNote, KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
-import { Logo } from '../components/Layout';
+import { Logo, SheetsMark } from '../components/Layout';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import type { DictKey } from '../i18n/en';
@@ -32,17 +32,25 @@ function GateShell({ children, wide = false }: { children: ReactNode; wide?: boo
 
 /** Screen heading with the connected spreadsheet's name beside it. */
 function GateTitle({ title, sheet, icon }: { title: string; sheet?: string; icon?: ReactNode }) {
+  const { t } = useI18n();
+  const id = settings.getSheet()?.id;
   return (
     <div className="gate-title">
       <div className="gate-title-main">
         {icon && <span className="gate-icon">{icon}</span>}
         <h1>{title}</h1>
       </div>
-      {sheet && (
-        <span className="sheet-chip" title={sheet}>
-          <Icon name="table" size={15} />
+      {sheet && id && (
+        <a
+          className="sheet-chip"
+          href={`https://docs.google.com/spreadsheets/d/${id}/edit`}
+          target="_blank"
+          rel="noreferrer"
+          title={`${t('openSheet')}: ${sheet}`}
+        >
+          <SheetsMark />
           <span>{sheet}</span>
-        </span>
+        </a>
       )}
     </div>
   );
@@ -116,7 +124,7 @@ export function ConnectScreen() {
             {recent.map((r) => (
               <li key={r.id}>
                 <button type="button" className="recent-item" disabled={busy} onClick={() => void connect(r.url)}>
-                  <Icon name="table" size={18} />
+                  <SheetsMark />
                   <span>{r.title || r.id}</span>
                 </button>
                 <button

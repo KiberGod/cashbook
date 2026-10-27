@@ -252,7 +252,6 @@ mark.hl {
   background: var(--highlight);
   color: inherit;
   border-radius: 3px;
-  padding: 0 1px;
 }
 
 /* ---------- app layout ---------- */
@@ -1224,6 +1223,8 @@ select,
 
 .avatar-img {
   background: var(--surface-2);
+  /* keeps white or dark logos visible on a card of the same colour */
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .avatar img {
@@ -1344,6 +1345,11 @@ select,
   gap: 4px 12px;
 }
 
+.amounts-column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .amount-chip {
   display: inline-flex;
   align-items: center;
@@ -1421,6 +1427,43 @@ select,
   font-size: 0.9rem;
   flex-shrink: 0;
   max-width: 45%;
+}
+
+/* cards in several columns, e.g. financial services */
+.rows-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 10px;
+}
+
+.rows-grid .row {
+  align-items: flex-start;
+  min-height: 92px;
+  padding: 16px 10px 16px 16px;
+  gap: 14px;
+}
+
+.rows-grid .row-main {
+  gap: 6px;
+}
+
+.row-note {
+  font-size: 0.86rem;
+}
+
+/* sortable cards: no text selection or link callout while long-pressing to drag */
+.rows-grid .row {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.row-dragging {
+  position: relative;
+  z-index: 5;
+  cursor: grabbing;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-lg);
 }
 
 .rows-compact .row {
@@ -1649,6 +1692,10 @@ select,
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
 }
 
 .link-list-meta {
@@ -2735,22 +2782,24 @@ select,
 .sheet-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   max-width: 100%;
-  height: 28px;
-  padding: 0 10px;
+  height: 34px;
+  padding: 0 14px 0 12px;
   border-radius: 999px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow);
   color: var(--text);
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 600;
 }
 
-.sheet-chip svg {
-  color: var(--muted);
-  flex-shrink: 0;
+.sheet-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  text-decoration: none;
 }
 
 .sheet-chip span {
@@ -2842,7 +2891,6 @@ select,
 }
 
 .recent-item svg {
-  color: var(--muted);
   flex-shrink: 0;
 }
 
@@ -3219,4 +3267,17 @@ select,
     transform: translateY(24px);
     opacity: 0.6;
   }
+}
+
+.panel .table-framed {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.panel .table-framed th {
+  white-space: normal;
+}
+
+.panel .table-framed td.num {
+  white-space: nowrap;
 }

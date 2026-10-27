@@ -37,6 +37,8 @@ export interface Service extends Timestamps {
   image: string;
   /** subset of SERVICE_FORMS */
   forms: FormId[];
+  /** position in the user's list, ascending; set by drag and drop */
+  order: number;
 }
 
 export interface Contact extends Timestamps {

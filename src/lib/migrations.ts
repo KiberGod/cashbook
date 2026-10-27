@@ -18,7 +18,10 @@ import type { EntityKind } from './types';
 export type RawTables = Record<EntityKind, RawRecord[]>;
 type Step = (tables: RawTables) => RawTables;
 
-const STEPS: Record<number, Step> = {};
+const STEPS: Record<number, Step> = {
+  // services got a user-defined position; start from the order of the rows
+  1: (t) => ({ ...t, services: t.services.map((s, i) => ({ ...s, order: i })) }),
+};
 
 export function migrate(tables: RawTables, from: number): RawTables {
   let t = tables;

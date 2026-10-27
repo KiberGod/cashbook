@@ -30,12 +30,10 @@ const SERVICES: { name: L | string; kind: L; image: string; forms: FormId[] }[] 
   { name: { uk: 'ПУМБ', en: 'PUMB', ru: 'ПУМБ' }, kind: BANK, image: 'builtin:pumb', forms: ['bank'] },
   { name: 'Binance', kind: EXCHANGE, image: 'builtin:binance', forms: ['crypto'] },
   { name: 'Bybit', kind: EXCHANGE, image: 'builtin:bybit', forms: ['crypto'] },
-  { name: 'WhiteBIT', kind: EXCHANGE, image: 'builtin:whitebit', forms: ['crypto'] },
   { name: 'OKX', kind: EXCHANGE, image: 'builtin:okx', forms: ['crypto'] },
   { name: 'Bitget', kind: EXCHANGE, image: 'builtin:bitget', forms: ['crypto'] },
   { name: 'Trust Wallet', kind: WALLET, image: 'builtin:trustwallet', forms: ['crypto'] },
   { name: 'MetaMask', kind: WALLET, image: 'builtin:metamask', forms: ['crypto'] },
-  { name: 'Phantom', kind: WALLET, image: 'builtin:phantom', forms: ['crypto'] },
   { name: 'Tonkeeper', kind: WALLET, image: 'builtin:tonkeeper', forms: ['crypto'] },
 ];
 
@@ -84,12 +82,13 @@ export function presetData(lang: Lang): Data {
     ...stamps,
   }));
 
-  const services: Service[] = SERVICES.map((s) => ({
+  const services: Service[] = SERVICES.map((s, i) => ({
     id: newId(),
     name: typeof s.name === 'string' ? s.name : pick(s.name, lang),
     description: pick(s.kind, lang),
     image: s.image,
     forms: s.forms,
+    order: i,
     ...stamps,
   }));
 

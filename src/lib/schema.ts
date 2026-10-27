@@ -7,11 +7,11 @@ import {
 } from './types';
 
 /**
- * Spreadsheet layout (schema v1). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v2). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
- *   Services      id | name | description | image | forms | createdAt | updatedAt
+ *   Services      id | name | description | image | forms | order | createdAt | updatedAt
  *   Contacts      id | name | description | image | isSelf | createdAt | updatedAt
  *   Accounts      id | name | description | form | assetIds | initialBalances | requisite | contactId | serviceId | createdAt | updatedAt
  *   Categories    id | name | description | image | parentId | createdAt | updatedAt
@@ -22,7 +22,7 @@ import {
  * each row is the JSON record of one entity, encrypted (see lib/crypto.ts).
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 
@@ -63,6 +63,7 @@ export const COLUMNS: Record<EntityKind, Spec> = {
     ['description', 'text'],
     ['image', 'text'],
     ['forms', 'list'],
+    ['order', 'int'],
     ...STAMPS,
   ],
   contacts: [

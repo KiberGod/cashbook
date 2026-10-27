@@ -46,15 +46,32 @@ export const deleteAsset = (d: Data, id: string): Data => ({ ...d, assets: d.ass
 
 // ---- services ----
 
-export type ServiceFields = Fields<Service>;
+export type ServiceFields = Omit<Fields<Service>, 'order'>;
 
+/** A new service goes to the end of the list; an edited one keeps its position. */
 export function saveService(d: Data, f: ServiceFields, id?: string) {
-  const { list, entity } = upsert(d.services, f, id);
+  const order = id ? d.services.find((s) => s.id === id)!.order : Math.max(-1, ...d.services.map((s) => s.order)) + 1;
+  const { list, entity } = upsert(d.services, { ...f, order }, id);
   // an account keeps its service only while the service supports the account's form
   const accounts = d.accounts.map((a) =>
     a.serviceId === entity.id && !entity.forms.includes(a.form) ? { ...a, serviceId: '', updatedAt: now() } : a,
   );
   return { data: { ...d, services: list, accounts }, entity };
+}
+
+/** Services in the user's order. */
+export const servicesInOrder = (list: Service[]) => [...list].sort((a, b) => a.order - b.order);
+
+/** Moves a service to the place of another one; positions are renumbered, only changed rows are rewritten. */
+export function moveService(d: Data, id: string, overId: string): Data {
+  const list = servicesInOrder(d.services);
+  const from = list.findIndex((s) => s.id === id);
+  const to = list.findIndex((s) => s.id === overId);
+  if (from < 0 || to < 0 || from === to) return d;
+  list.splice(to, 0, ...list.splice(from, 1));
+  const t = now();
+  const moved = new Map(list.map((s, i) => [s.id, s.order === i ? s : { ...s, order: i, updatedAt: t }]));
+  return { ...d, services: d.services.map((s) => moved.get(s.id)!) };
 }
 
 /** Accounts using the service just lose the link. */

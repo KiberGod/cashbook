@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { NONE, activeFilters, emptyFilter, type TxFilter } from '../lib/analytics';
+import { servicesInOrder } from '../lib/ops';
 import { byName } from '../lib/search';
 import { sortAccountsForPicker, type Index } from '../lib/stats';
 import { FORMS } from '../lib/types';
@@ -45,7 +46,7 @@ export function useFilterOptions(ix: Index) {
       contactsWithNone: [...contacts, { value: NONE, label: t('tx.unknownParty') }],
       categories,
       assets: data.assets.map((a) => ({ value: a.id, label: a.code, hint: a.name, icon: <AssetIcon asset={a} size={18} /> })),
-      services: [...data.services].sort(byName(locale)).map((s) => ({ value: s.id, label: s.name, icon: <Avatar image={s.image} name={s.name} size={18} /> })),
+      services: servicesInOrder(data.services).map((s) => ({ value: s.id, label: s.name, icon: <Avatar image={s.image} name={s.name} size={18} /> })),
       forms: FORMS.map((f) => ({ value: f, label: t(`form.${f}`) })),
       debts: [...data.debts.map((d) => ({ value: d.id, label: d.name })), { value: NONE, label: t('tx.debtNone') }],
     };

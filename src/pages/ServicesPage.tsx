@@ -1,20 +1,23 @@
+import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState, type FormEvent } from 'react';
-import { AssetAmounts, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, MultiSelect, Pagination, SearchField, Stat, usePaged } from '../components/bits';
+import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { deleteService, saveService } from '../lib/ops';
-import { byName, matchesAny } from '../lib/search';
+import { deleteService, moveService, saveService, servicesInOrder } from '../lib/ops';
+import { matchesAny } from '../lib/search';
 import { add, getIndex, type AssetMap } from '../lib/stats';
-import { SERVICE_FORMS, type FormId, type Service } from '../lib/types';
+import { SERVICE_FORMS, type Asset, type FormId, type Service } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { NotFound } from './common';
 
 export function ServicesPage() {
-  const { t, tn, locale } = useI18n();
+  const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
   const [q, setQ] = useState('');
@@ -24,13 +27,28 @@ export function ServicesPage() {
 
   const list = useMemo(
     () =>
-      data.services
+      servicesInOrder(data.services)
         .filter((s) => matchesAny(q, s.name))
-        .filter((s) => !forms.length || s.forms.some((f) => forms.includes(f)))
-        .sort(byName(locale)),
-    [data.services, q, forms, locale],
+        .filter((s) => !forms.length || s.forms.some((f) => forms.includes(f))),
+    [data.services, q, forms],
   );
   const paged = usePaged(list, 'services', `${q}|${forms}`);
+  // the order is only changed on the full list, never on search or filter results
+  const filtered = !!q.trim() || forms.length > 0;
+
+  // drag starts after a small move (mouse) or a long press (touch), so clicks and scrolling still work
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates, keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] } }),
+  );
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    // the click that follows a drop must not open the card (dnd-kit only stops its propagation)
+    const cancel = (e: MouseEvent) => e.preventDefault();
+    window.addEventListener('click', cancel, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', cancel, { capture: true }), 300);
+    if (over && active.id !== over.id) mutate((d) => moveService(d, String(active.id), String(over.id)));
+  };
 
   return (
     <>
@@ -55,38 +73,82 @@ export function ServicesPage() {
         />
       </div>
       {list.length === 0 ? (
-        <EmptyState icon="bank" text={q || forms.length ? t('common.nothingFound') : t('services.empty')} />
+        <EmptyState icon="bank" text={filtered ? t('common.nothingFound') : t('services.empty')} />
       ) : (
-        <div className="rows">
-          {paged.items.map((s) => (
-            <a key={s.id} className="row" href={href.detail('services', s.id)}>
-              <Avatar image={s.image} name={s.name} />
-              <div className="row-main">
-                <div className="row-title">
-                  <Highlight text={s.name} query={q} />
-                </div>
-                <div className="row-meta">
-                  {s.forms.map((f) => (
-                    <FormBadge key={f} form={f} />
-                  ))}
-                  {s.description && <span className="muted ellipsis">{s.description}</span>}
-                </div>
-              </div>
-              <div className="row-side muted">{tn('counts.accounts', ix.serviceAccounts.get(s.id)?.length ?? 0)}</div>
-              <CardMenu
-                actions={[
-                  { label: t('common.edit'), icon: 'edit', onSelect: () => setEdit(s) },
-                  { label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => setDel(s) },
-                ]}
-              />
-            </a>
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={paged.items.map((s) => s.id)} strategy={rectSortingStrategy} disabled={filtered}>
+            <div className="rows rows-grid">
+              {paged.items.map((s) => (
+                <ServiceCard
+                  key={s.id}
+                  service={s}
+                  query={q}
+                  accounts={tn('counts.accounts', ix.serviceAccounts.get(s.id)?.length ?? 0)}
+                  onEdit={() => setEdit(s)}
+                  onDelete={() => setDel(s)}
+                  sortable={!filtered}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
       <Pagination p={paged} />
       {edit && <ServiceEditor service={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
       {del && <DeleteService service={del} onClose={() => setDel(null)} />}
     </>
+  );
+}
+
+/** A service card in the grid; drag it onto another card to change the order. */
+function ServiceCard({
+  service: s,
+  query,
+  accounts,
+  onEdit,
+  onDelete,
+  sortable,
+}: {
+  service: Service;
+  query: string;
+  accounts: string;
+  onEdit: () => void;
+  onDelete: () => void;
+  sortable: boolean;
+}) {
+  const { t } = useI18n();
+  const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: s.id });
+  return (
+    <a
+      ref={setNodeRef}
+      className={`row ${isDragging ? 'row-dragging' : ''}`}
+      href={href.detail('services', s.id)}
+      draggable={false}
+      style={{ transform: CSS.Translate.toString(transform), transition }}
+      // a long press starts dragging on touch screens, not the link menu
+      onContextMenu={(e) => (e.nativeEvent as PointerEvent).pointerType === 'touch' && e.preventDefault()}
+      aria-roledescription={sortable ? attributes['aria-roledescription'] : undefined}
+      aria-describedby={sortable ? attributes['aria-describedby'] : undefined}
+      {...listeners}
+    >
+      <Avatar image={s.image} name={s.name} size={48} />
+      <div className="row-main">
+        <div className="row-title">
+          <Highlight text={s.name} query={query} />
+          {s.forms.map((f) => (
+            <FormBadge key={f} form={f} />
+          ))}
+        </div>
+        <span className="row-note muted">{accounts}</span>
+        {s.description && <span className="row-note muted ellipsis">{s.description}</span>}
+      </div>
+      <CardMenu
+        actions={[
+          { label: t('common.edit'), icon: 'edit', onSelect: onEdit },
+          { label: t('common.delete'), icon: 'trash', danger: true, onSelect: onDelete },
+        ]}
+      />
+    </a>
   );
 }
 
@@ -99,11 +161,16 @@ export function ServiceDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   if (!service) return <NotFound />;
   const accounts = ix.serviceAccounts.get(id) ?? [];
+  const isOwn = (a: { contactId: string }) => !!a.contactId && a.contactId === ix.self?.id;
   const total: AssetMap = new Map();
+  const own: AssetMap = new Map();
   let txs = 0;
   for (const a of accounts) {
     const s = ix.account.get(a.id)!;
-    for (const [x, v] of s.balances) add(total, x, v);
+    for (const [x, v] of s.balances) {
+      add(total, x, v);
+      if (isOwn(a)) add(own, x, v);
+    }
     txs += s.flow.tx;
   }
 
@@ -126,13 +193,6 @@ export function ServiceDetail({ id }: { id: string }) {
           </>
         }
       />
-      <div className="stats-row">
-        <Stat label={t('nav.accounts')}>{accounts.length}</Stat>
-        <Stat label={t('nav.transactions')}>{txs}</Stat>
-        <Stat label={t('services.balance')}>
-          <AssetAmounts map={total} assets={data.assets} />
-        </Stat>
-      </div>
       <div className="detail-grid">
         <section className="panel">
           <h2>{t('common.details')}</h2>
@@ -146,6 +206,8 @@ export function ServiceDetail({ id }: { id: string }) {
             <dt>{t('common.description')}</dt>
             <dd className="pre">{service.description || <span className="muted">—</span>}</dd>
           </dl>
+          <h2>{t('services.balance')}</h2>
+          <BalanceTable total={total} own={own} assets={data.assets} />
         </section>
         <section className="panel">
           <h2>
@@ -156,6 +218,7 @@ export function ServiceDetail({ id }: { id: string }) {
             items={accounts.map((a) => ({
               href: href.detail('accounts', a.id),
               label: a.name,
+              badge: isOwn(a) ? <span className="badge badge-accent">{t('accounts.yours')}</span> : undefined,
               meta: <AssetAmounts map={ix.account.get(a.id)!.balances} assets={data.assets} keepZero />,
             }))}
           />
@@ -169,6 +232,50 @@ export function ServiceDetail({ id }: { id: string }) {
       {edit && <ServiceEditor service={service} onClose={() => setEdit(false)} />}
       {del && <DeleteService service={service} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('services'))} />}
     </>
+  );
+}
+
+/** Per-asset totals of a service: all its accounts, the user's own, and their share. */
+function BalanceTable({ total, own, assets }: { total: AssetMap; own: AssetMap; assets: Asset[] }) {
+  const { t } = useI18n();
+  const rows = assets.filter((a) => (total.get(a.id) ?? 0) !== 0 || (own.get(a.id) ?? 0) !== 0);
+  if (!rows.length) return <span className="muted">{t('services.noBalance')}</span>;
+  return (
+    <div className="table-wrap table-framed">
+      <table className="table table-compact">
+        <thead>
+          <tr>
+            <th>{t('accounts.asset')}</th>
+            <th className="num">{t('services.colTotal')}</th>
+            <th className="num">{t('services.colOwn')}</th>
+            <th className="num">{t('services.colShare')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((a) => {
+            const all = total.get(a.id) ?? 0;
+            const mine = own.get(a.id) ?? 0;
+            // a share only makes sense of a positive total that the own part fits into
+            const share = all > 0 && mine >= 0 && mine <= all ? Math.round((mine / all) * 1000) / 10 : null;
+            return (
+              <tr key={a.id}>
+                <td>
+                  <span className="cell-link">
+                    <AssetIcon asset={a} size={18} />
+                    {a.code}
+                  </span>
+                </td>
+                <td className="num">
+                  <Money value={all} asset={a} />
+                </td>
+                <td className="num">{mine ? <Money value={mine} asset={a} /> : <span className="muted">—</span>}</td>
+                <td className="num">{share === null ? <span className="muted">—</span> : `${share}%`}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -241,7 +348,7 @@ export function ServiceEditor({ service, onClose }: { service: Service | null; o
           onChange={setForms}
           label={t('services.forms')}
           error={err('forms')}
-          hint={unlinked ? t('services.formUnlink', { accounts: tn('counts.accounts', unlinked) }) : t('services.formsHint')}
+          hint={unlinked ? t('services.formUnlink', { accounts: tn('counts.accounts', unlinked) }) : undefined}
         />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
       </form>

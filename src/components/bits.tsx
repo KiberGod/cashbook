@@ -70,7 +70,8 @@ export function Highlight({ text, query = '' }: { text: string; query?: string }
     last = end;
   });
   if (last < text.length) parts.push(text.slice(last));
-  return <>{parts}</>;
+  // One wrapper, so a flex parent with a gap doesn't space the pieces apart.
+  return <span>{parts}</span>;
 }
 
 export function SearchField({
@@ -417,6 +418,7 @@ export function AssetAmounts({
   sign = false,
   colored = false,
   keepZero = false,
+  column = false,
 }: {
   map: AssetMap;
   assets: Asset[];
@@ -424,11 +426,13 @@ export function AssetAmounts({
   sign?: boolean;
   colored?: boolean;
   keepZero?: boolean;
+  /** one amount per line instead of a wrapping row */
+  column?: boolean;
 }) {
   const list = entries(map, assets, { keepZero });
   if (!list.length) return <span className="muted">{empty}</span>;
   return (
-    <span className="amounts">
+    <span className={column ? 'amounts amounts-column' : 'amounts'}>
       {list.map(([a, v]) => (
         <span key={a.id} className="amount-chip">
           <AssetIcon asset={a} size={16} />
@@ -487,7 +491,7 @@ export function Stat({ label, children, hint, icon }: { label: string; children:
 }
 
 /** Small "used by" link list for back-references. */
-export function LinkList({ items, empty }: { items: { href: string; label: string; icon?: ReactNode; meta?: ReactNode }[]; empty: string }) {
+export function LinkList({ items, empty }: { items: { href: string; label: string; icon?: ReactNode; badge?: ReactNode; meta?: ReactNode }[]; empty: string }) {
   if (!items.length) return <p className="muted">{empty}</p>;
   return (
     <ul className="link-list">
@@ -495,7 +499,10 @@ export function LinkList({ items, empty }: { items: { href: string; label: strin
         <li key={x.href + x.label}>
           <a href={x.href}>
             {x.icon}
-            <span className="link-list-label">{x.label}</span>
+            <span className="link-list-label">
+              {x.label}
+              {x.badge}
+            </span>
             {x.meta && <span className="link-list-meta">{x.meta}</span>}
             <Icon name="chevronRight" size={16} />
           </a>

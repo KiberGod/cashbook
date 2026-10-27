@@ -33,7 +33,7 @@ export interface BatchUpdateReply {
   replies?: { addSheet?: { properties: { sheetId: number; title: string } } }[];
 }
 
-/** The part of the Sheets API the app uses - implemented by Google and by the local dev sheet. */
+/** The part of the Sheets API the app uses. */
 export interface SheetIO {
   info(): Promise<SpreadsheetInfo>;
   batchGet(ranges: string[]): Promise<Rows[]>;

@@ -8,7 +8,7 @@ import { TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { parseAmount } from '../lib/format';
-import { deleteAccount, saveAccount } from '../lib/ops';
+import { deleteAccount, saveAccount, servicesInOrder } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
 import { getIndex, sortAccountsForPicker } from '../lib/stats';
 import { FORMS, LIMITS, type Account, type FormId } from '../lib/types';
@@ -85,7 +85,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
         <MultiSelect label={t('filter.form')} options={FORMS.map((f) => ({ value: f, label: t(`form.${f}`) }))} value={forms} onChange={setForms} />
         <MultiSelect
           label={t('filter.service')}
-          options={[...data.services].sort(byName(locale)).map((s) => ({ value: s.id, label: s.name, icon: <Avatar image={s.image} name={s.name} size={18} /> }))}
+          options={servicesInOrder(data.services).map((s) => ({ value: s.id, label: s.name, icon: <Avatar image={s.image} name={s.name} size={18} /> }))}
           value={services}
           onChange={setServices}
         />
@@ -333,7 +333,7 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
   const isNew = !account;
   const fixedAssets = new Set(account?.assetIds ?? []);
   const formAssets = data.assets.filter((a) => a.forms.includes(form) || fixedAssets.has(a.id)).sort(byName(locale));
-  const services = data.services.filter((s) => s.forms.includes(form)).sort(byName(locale));
+  const services = servicesInOrder(data.services).filter((s) => s.forms.includes(form));
   // assets whose starting balance can still be set: all on creation, newly added ones for crypto
   const editableBalance = assetIds.filter((x) => !fixedAssets.has(x));
 

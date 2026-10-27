@@ -63,7 +63,7 @@ export function ImageField({
 }) {
   const { t } = useI18n();
   return (
-    <Field label={label ?? t('common.image')} error={error} hint={t('common.imageHint')}>
+    <Field label={label ?? t('common.imageUrl')} error={error}>
       <span className="image-input">
         <Avatar image={value.trim()} name={name || '?'} size={40} />
         <input type="text" inputMode="url" value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://…" />
