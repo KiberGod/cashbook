@@ -2,7 +2,7 @@ import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, us
 import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState, type FormEvent } from 'react';
-import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, usePaged } from '../components/bits';
+import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -11,7 +11,7 @@ import { useI18n } from '../i18n';
 import { deleteService, moveService, saveService, servicesInOrder } from '../lib/ops';
 import { matchesAny } from '../lib/search';
 import { add, getIndex, type AssetMap } from '../lib/stats';
-import { SERVICE_FORMS, type Asset, type FormId, type Service } from '../lib/types';
+import { SERVICE_FORMS, type FormId, type Service } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { NotFound } from './common';
@@ -207,7 +207,22 @@ export function ServiceDetail({ id }: { id: string }) {
             <dd className="pre">{service.description || <span className="muted">—</span>}</dd>
           </dl>
           <h2>{t('services.balance')}</h2>
-          <BalanceTable total={total} own={own} assets={data.assets} />
+          <TotalsTable
+            head={t('accounts.asset')}
+            empty={t('services.noBalance')}
+            rows={data.assets.map((a) => ({
+              key: a.id,
+              label: (
+                <span className="cell-link">
+                  <AssetIcon asset={a} size={18} />
+                  {a.code}
+                </span>
+              ),
+              asset: a,
+              total: total.get(a.id) ?? 0,
+              own: own.get(a.id) ?? 0,
+            }))}
+          />
         </section>
         <section className="panel">
           <h2>
@@ -232,50 +247,6 @@ export function ServiceDetail({ id }: { id: string }) {
       {edit && <ServiceEditor service={service} onClose={() => setEdit(false)} />}
       {del && <DeleteService service={service} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('services'))} />}
     </>
-  );
-}
-
-/** Per-asset totals of a service: all its accounts, the user's own, and their share. */
-function BalanceTable({ total, own, assets }: { total: AssetMap; own: AssetMap; assets: Asset[] }) {
-  const { t } = useI18n();
-  const rows = assets.filter((a) => (total.get(a.id) ?? 0) !== 0 || (own.get(a.id) ?? 0) !== 0);
-  if (!rows.length) return <span className="muted">{t('services.noBalance')}</span>;
-  return (
-    <div className="table-wrap table-framed">
-      <table className="table table-compact">
-        <thead>
-          <tr>
-            <th>{t('accounts.asset')}</th>
-            <th className="num">{t('services.colTotal')}</th>
-            <th className="num">{t('services.colOwn')}</th>
-            <th className="num">{t('services.colShare')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((a) => {
-            const all = total.get(a.id) ?? 0;
-            const mine = own.get(a.id) ?? 0;
-            // a share only makes sense of a positive total that the own part fits into
-            const share = all > 0 && mine >= 0 && mine <= all ? Math.round((mine / all) * 1000) / 10 : null;
-            return (
-              <tr key={a.id}>
-                <td>
-                  <span className="cell-link">
-                    <AssetIcon asset={a} size={18} />
-                    {a.code}
-                  </span>
-                </td>
-                <td className="num">
-                  <Money value={all} asset={a} />
-                </td>
-                <td className="num">{mine ? <Money value={mine} asset={a} /> : <span className="muted">—</span>}</td>
-                <td className="num">{share === null ? <span className="muted">—</span> : `${share}%`}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

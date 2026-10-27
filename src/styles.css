@@ -3281,3 +3281,106 @@ select,
 .panel .table-framed td.num {
   white-space: nowrap;
 }
+
+.detail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.table tfoot td {
+  border-top: 1px solid var(--border-strong);
+  font-weight: 600;
+}
+
+.contact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 10px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contact-chip-self {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.debt-parties {
+  gap: 6px 8px;
+  color: var(--muted);
+}
+
+.debt-parties .amount-chip {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* picture preview + symbol/url input + kind toggle, as one control */
+.icon-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 4px 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.icon-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.field .icon-input input:focus {
+  box-shadow: none;
+}
+
+.field .icon-input input:not([type='checkbox']):not([type='radio']) {
+  flex: 1;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+}
+
+.icon-input-kinds {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.icon-input-kinds button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-input-kinds button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}

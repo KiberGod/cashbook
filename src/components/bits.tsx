@@ -6,7 +6,7 @@ import { entries, money } from '../lib/format';
 import { matchRanges, matchesAny } from '../lib/search';
 import type { AssetMap } from '../lib/stats';
 import { readPref, writePref } from '../lib/storage';
-import type { Asset, FormId } from '../lib/types';
+import type { Asset, Contact, FormId } from '../lib/types';
 
 /** Picture (url / builtin) or, without one, a text symbol or the first letter on a tinted circle. */
 export function Avatar({
@@ -52,6 +52,17 @@ function tint(name: string) {
 export function AssetIcon({ asset, size = 22 }: { asset: Asset | undefined; size?: number }) {
   if (!asset) return null;
   return <Avatar image={asset.image} symbol={asset.symbol || asset.code.slice(0, 3)} name={asset.code} size={size} />;
+}
+
+/** A contact as a small pill with its picture; the user's own contact is tinted. */
+export function ContactChip({ contact, query = '' }: { contact: Contact | undefined; query?: string }) {
+  if (!contact) return <span className="contact-chip">?</span>;
+  return (
+    <span className={contact.isSelf ? 'contact-chip contact-chip-self' : 'contact-chip'}>
+      <Avatar image={contact.image} name={contact.name} size={18} />
+      <Highlight text={contact.name} query={query} />
+    </span>
+  );
 }
 
 /** Renders text with the parts matching the search query marked. */
@@ -486,6 +497,51 @@ export function Stat({ label, children, hint, icon }: { label: string; children:
       </div>
       <div className="stat-value">{children}</div>
       {hint && <div className="stat-hint">{hint}</div>}
+    </div>
+  );
+}
+
+export interface TotalsRow {
+  key: string;
+  label: ReactNode;
+  asset: Asset;
+  total: number;
+  own: number;
+}
+
+/** Totals over all accounts vs the user's own ones, and the user's share; rows skip zero lines. */
+export function TotalsTable({ head, rows, footer, empty }: { head: string; rows: TotalsRow[]; footer?: TotalsRow; empty: string }) {
+  const { t, num } = useI18n();
+  const shown = rows.filter((r) => r.total !== 0 || r.own !== 0);
+  if (!shown.length) return <span className="muted">{empty}</span>;
+  const line = (r: TotalsRow) => {
+    // negative balances elsewhere can push the share over 100% - shown as is; only a zero total has none
+    const share = r.total !== 0 ? (r.own / r.total) * 100 : null;
+    return (
+      <tr key={r.key}>
+        <td>{r.label}</td>
+        <td className="num">
+          <Money value={r.total} asset={r.asset} />
+        </td>
+        <td className="num">{r.own ? <Money value={r.own} asset={r.asset} /> : <span className="muted">—</span>}</td>
+        <td className="num">{share === null ? <span className="muted">—</span> : `${num(share, 1)}%`}</td>
+      </tr>
+    );
+  };
+  return (
+    <div className="table-wrap table-framed">
+      <table className="table table-compact">
+        <thead>
+          <tr>
+            <th>{head}</th>
+            <th className="num">{t('totals.all')}</th>
+            <th className="num">{t('totals.own')}</th>
+            <th className="num">{t('totals.share')}</th>
+          </tr>
+        </thead>
+        <tbody>{shown.map(line)}</tbody>
+        {footer && shown.length > 1 && <tfoot>{line(footer)}</tfoot>}
+      </table>
     </div>
   );
 }

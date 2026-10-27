@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { Lang } from '../i18n';
 import { createBackend, type Dirty, type SheetBackend } from '../lib/backend';
 import { AppError, toAppError } from '../lib/errors';
+import { forgetKey, recallKey, rememberKey } from '../lib/keyCache';
 import { CLIENT_ID, forgetToken, getValidToken, loadGis, requestToken, signOut } from '../lib/googleAuth';
 import { presetData } from '../lib/presets';
 import { InvalidStructureError } from '../lib/schema';
@@ -69,7 +70,7 @@ export const getState = () => state;
 
 // ---------------------------------------------------------------------------
 
-/** One backend per connected spreadsheet - it keeps the encryption key in memory only. */
+/** One backend per connected spreadsheet - it holds the encryption key (kept for reloads by keyCache). */
 let backend: SheetBackend | null = null;
 let backendFor = '';
 let dirty: Dirty = new Map();
@@ -86,7 +87,15 @@ function backendOf(sheetId: string): SheetBackend {
   return backend;
 }
 
+/** Keeps the current key for reloads of this tab, or drops it when there is none. */
+function keepKey() {
+  const key = backend?.cryptoKey;
+  if (key) rememberKey(backendFor, key);
+  else forgetKey();
+}
+
 function ready(data: Data, title: string) {
+  keepKey();
   dirty = new Map();
   set({
     phase: 'ready',
@@ -106,12 +115,15 @@ function ready(data: Data, title: string) {
 /** Opens the spreadsheet and moves to the phase that follows from its state. */
 async function open(sheetId: string, verifyWrite: boolean) {
   const b = backendOf(sheetId);
+  const kept = await recallKey(sheetId);
+  if (kept) b.adoptKey(kept);
   const r = await b.open({ verifyWrite });
   const sheet = settings.getSheet();
   if (sheet && sheet.id === sheetId && r.title !== sheet.title) settings.setSheet({ ...sheet, title: r.title });
   if (r.status === 'ready') return ready(r.data, r.title);
   if (r.status === 'blank') return set({ phase: 'setup', title: r.title, error: null, refreshing: false });
-  // encrypted: a reload in the same session reuses the key that is already in memory
+  // encrypted and no fitting key in memory or kept from before the reload
+  forgetKey();
   return set({ phase: 'unlock', title: r.title, encrypted: true, error: null, refreshing: false });
 }
 
@@ -224,6 +236,7 @@ export async function disconnect() {
   dirty = new Map();
   backend = null;
   backendFor = '';
+  forgetKey();
   settings.setSheet(null);
   set({ phase: 'connect', data: EMPTY_DATA, title: '', encrypted: false, error: null, sync: 'idle', syncError: null, refreshing: false });
 }
@@ -314,6 +327,7 @@ export async function setEncryption(password: string | null) {
     await run;
     set({ encrypted: b.encrypted });
   } finally {
+    keepKey();
     set({ sync: hasDirty() ? 'pending' : 'idle' });
   }
   if (hasDirty()) saveTimer = setTimeout(() => void flush(), SAVE_DEBOUNCE_MS);

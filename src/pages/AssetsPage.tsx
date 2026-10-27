@@ -1,16 +1,17 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { AssetAmounts, AssetIcon, CardMenu, EmptyState, Field, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, Segmented, Stat, usePaged } from '../components/bits';
-import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
+import { AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
+import { DescriptionField, FormChecks, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteAsset, saveAsset } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
-import { add, getIndex, type AssetMap } from '../lib/stats';
+import { getIndex, round } from '../lib/stats';
 import { FORMS, LIMITS, type Asset, type FormId } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
+import { DebtRow } from './DebtsPage';
 import { NotFound } from './common';
 
 export function AssetsPage() {
@@ -36,7 +37,7 @@ export function AssetsPage() {
     <>
       <PageHead
         title={t('nav.assets')}
-        icon={<Icon name="coins" />}
+        icon={<Icon name="currency" />}
         subtitle={t('assets.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit('new')}>
@@ -55,7 +56,7 @@ export function AssetsPage() {
         />
       </div>
       {list.length === 0 ? (
-        <EmptyState icon="coins" text={q || forms.length ? t('common.nothingFound') : t('assets.empty')} />
+        <EmptyState icon="currency" text={q || forms.length ? t('common.nothingFound') : t('assets.empty')} />
       ) : (
         <div className="rows">
           {paged.items.map((a) => {
@@ -66,9 +67,6 @@ export function AssetsPage() {
                 <div className="row-main">
                   <div className="row-title">
                     <Highlight text={a.name} query={q} />
-                    <span className="code">
-                      <Highlight text={a.code} query={q} />
-                    </span>
                   </div>
                   <div className="row-meta">
                     {a.forms.map((f) => (
@@ -106,15 +104,17 @@ export function AssetDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   if (!asset) return <NotFound />;
   const u = ix.assetUsage.get(id)!;
+  const isOwn = (a: { contactId: string }) => !!a.contactId && a.contactId === ix.self?.id;
+  const balance = (accountId: string) => ix.account.get(accountId)!.balances.get(id) ?? 0;
 
-  // total of this asset over all accounts / own accounts
-  const total: AssetMap = new Map();
-  const own: AssetMap = new Map();
+  // totals of this asset per form of funds: all accounts / own accounts
+  const total: Record<string, number> = {};
+  const own: Record<string, number> = {};
   for (const a of u.accounts) {
-    const v = ix.account.get(a.id)!.balances.get(id) ?? 0;
-    add(total, id, v);
-    if (a.contactId && a.contactId === ix.self?.id) add(own, id, v);
+    total[a.form] = round((total[a.form] ?? 0) + balance(a.id));
+    if (isOwn(a)) own[a.form] = round((own[a.form] ?? 0) + balance(a.id));
   }
+  const sum = (m: Record<string, number>) => round(Object.values(m).reduce((x, v) => x + v, 0));
 
   return (
     <>
@@ -135,53 +135,64 @@ export function AssetDetail({ id }: { id: string }) {
           </>
         }
       />
-      <div className="stats-row">
-        <Stat label={t('assets.code')}>{asset.code}</Stat>
-        <Stat label={t('assets.ownTotal')}>
-          <Money value={own.get(id) ?? 0} asset={asset} />
-        </Stat>
-        <Stat label={t('assets.allTotal')}>
-          <AssetAmounts map={total} assets={[asset]} keepZero />
-        </Stat>
-        <Stat label={t('assets.decimals')}>{num(asset.decimals)}</Stat>
-      </div>
       <div className="detail-grid">
         <section className="panel">
           <h2>{t('common.details')}</h2>
           <dl className="kv">
+            <dt>{t('assets.code')}</dt>
+            <dd>{asset.code}</dd>
             <dt>{t('assets.forms')}</dt>
             <dd className="badges">
               {asset.forms.length ? asset.forms.map((f) => <FormBadge key={f} form={f} />) : <span className="muted">—</span>}
             </dd>
-            <dt>{t('assets.symbol')}</dt>
-            <dd>{asset.image ? <AssetIcon asset={asset} /> : asset.symbol || '—'}</dd>
+            <dt>{t('assets.decimals')}</dt>
+            <dd>{num(asset.decimals)}</dd>
             <dt>{t('common.description')}</dt>
             <dd className="pre">{asset.description || <span className="muted">—</span>}</dd>
           </dl>
-        </section>
-        <section className="panel">
-          <h2>
-            {t('nav.accounts')} <span className="count">{u.accounts.length}</span>
-          </h2>
-          <LinkList
-            empty={t('assets.noAccounts')}
-            items={u.accounts.map((a) => ({
-              href: href.detail('accounts', a.id),
-              label: a.name,
-              meta: <Money value={ix.account.get(a.id)!.balances.get(id) ?? 0} asset={asset} />,
-            }))}
+          <h2>{t('assets.balance')}</h2>
+          <TotalsTable
+            head={t('filter.form')}
+            empty={t('assets.noBalance')}
+            rows={FORMS.map((f) => ({ key: f, label: <FormBadge form={f} />, asset, total: total[f] ?? 0, own: own[f] ?? 0 }))}
+            footer={{ key: 'sum', label: t('totals.sum'), asset, total: sum(total), own: sum(own) }}
           />
         </section>
-        <section className="panel">
-          <h2>{t('common.related')}</h2>
-          <LinkList
-            empty="—"
-            items={[
-              { href: href.transactions({ asset: id }), label: t('nav.transactions'), meta: tn('counts.transactions', u.txs) },
-              ...u.debts.map((d) => ({ href: href.detail('debts', d.id), label: d.name, meta: t('debts.one') })),
-            ]}
-          />
-        </section>
+        <div className="detail-col">
+          <section className="panel">
+            <h2>
+              {t('nav.accounts')} <span className="count">{u.accounts.length}</span>
+            </h2>
+            <LinkList
+              empty={t('assets.noAccounts')}
+              items={u.accounts.map((a) => ({
+                href: href.detail('accounts', a.id),
+                label: a.name,
+                badge: isOwn(a) ? <span className="badge badge-accent">{t('accounts.yours')}</span> : undefined,
+                meta: <Money value={balance(a.id)} asset={asset} />,
+              }))}
+            />
+            {u.accounts.length > 0 && (
+              <a className="btn btn-sm" href={href.transactions({ asset: id })}>
+                {tn('counts.transactions', u.txs)}
+              </a>
+            )}
+          </section>
+          <section className="panel">
+            <h2>
+              {t('nav.debts')} <span className="count">{u.debts.length}</span>
+            </h2>
+            {u.debts.length === 0 ? (
+              <p className="muted">{t('assets.noDebts')}</p>
+            ) : (
+              <div className="rows rows-compact">
+                {u.debts.map((d) => (
+                  <DebtRow key={d.id} d={d} />
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
       {edit && <AssetEditor asset={asset} onClose={() => setEdit(false)} />}
       {del && <DeleteAsset asset={asset} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('assets'))} />}
@@ -300,29 +311,38 @@ export function AssetEditor({ asset, onClose }: { asset: Asset | null; onClose: 
             <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="UAH, USDT…" />
           </Field>
         </div>
-        <Field label={t('assets.iconKind')} group>
-          <Segmented
-            value={iconKind}
-            onChange={setIconKind}
-            options={[
-              { value: 'symbol', label: t('assets.symbol') },
-              { value: 'image', label: t('common.image') },
-            ]}
-          />
+        <Field label={t('assets.iconKind')} error={err(iconKind)} group>
+          <span className="icon-input">
+            <Avatar image={iconKind === 'image' ? image.trim() : ''} symbol={symbol.trim() || code.trim().slice(0, 3)} name={code || name || '?'} size={30} />
+            {iconKind === 'symbol' ? (
+              <input type="text" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="₴, $, €" aria-label={t('assets.symbol')} />
+            ) : (
+              <input type="text" inputMode="url" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://…" aria-label={t('common.imageUrl')} />
+            )}
+            <span className="icon-input-kinds" role="radiogroup" aria-label={t('assets.iconKind')}>
+              {(['symbol', 'image'] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={iconKind === k}
+                  className={iconKind === k ? 'active' : ''}
+                  title={k === 'symbol' ? t('assets.symbol') : t('common.image')}
+                  aria-label={k === 'symbol' ? t('assets.symbol') : t('common.image')}
+                  onClick={() => setIconKind(k)}
+                >
+                  <Icon name={k === 'symbol' ? 'type' : 'image'} size={16} />
+                </button>
+              ))}
+            </span>
+          </span>
         </Field>
         <div className="form-grid">
-          {iconKind === 'symbol' ? (
-            <Field label={t('assets.symbol')} error={err('symbol')} hint={t('assets.symbolHint')}>
-              <input type="text" value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="₴, $, €" />
-            </Field>
-          ) : (
-            <ImageField value={image} onChange={setImage} error={err('image')} name={code || name} />
-          )}
-          <Field label={t('assets.decimals')} error={err('decimals')} hint={t('assets.decimalsHint')}>
+          <Field label={t('assets.decimals')} error={err('decimals')}>
             <input type="number" min={0} max={LIMITS.maxDecimals} step={1} value={decimals} onChange={(e) => setDecimals(e.target.value)} />
           </Field>
         </div>
-        <FormChecks forms={FORMS} value={forms} onChange={setForms} label={t('assets.forms')} error={err('forms')} hint={t('assets.formsHint')} />
+        <FormChecks forms={FORMS} value={forms} onChange={setForms} label={t('assets.forms')} error={err('forms')} />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
       </form>
     </Modal>

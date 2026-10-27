@@ -74,6 +74,16 @@ export class SheetBackend {
     return !!this.meta && this.meta.encryption !== 'none';
   }
 
+  /** The current key (null for a plain or still locked spreadsheet). */
+  get cryptoKey(): CryptoKey | null {
+    return this.encrypted ? this.key : null;
+  }
+
+  /** A key kept from before a page reload; open() checks it against the spreadsheet. */
+  adoptKey(key: CryptoKey) {
+    this.key ??= key;
+  }
+
   /**
    * Reads everything in one request. A blank file needs setup, an encrypted one needs
    * the key (see unlock); a plain one is decoded and validated right away.
@@ -121,7 +131,7 @@ export class SheetBackend {
 
     if (verifyWrite) await this.writeMeta(); // proves edit access before the user starts working
 
-    // a reload in the same session reuses the key, unless the spreadsheet was re-keyed meanwhile
+    // a reload reuses the key (kept in memory or adopted), unless the spreadsheet was re-keyed meanwhile
     if (enc && this.key && !(await keyMatches(this.key, this.meta.check))) this.key = null;
     if (enc && !this.key) return { status: 'locked', title: info.title };
     return { status: 'ready', title: info.title, data: await this.decode() };

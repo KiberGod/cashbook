@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, Field, Highlight, Money, MultiSelect, Pagination, SearchField, Segmented, Stat, usePaged } from '../components/bits';
+import { AssetAmounts, AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Field, Highlight, Money, MultiSelect, Pagination, SearchField, Segmented, Stat, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -28,20 +28,21 @@ export function DebtRow({ d, q = '', onEdit, onDelete }: { d: Debt; q?: string; 
   const creditor = ix.contacts.get(d.creditorId);
   const total = d.amount + s.added;
   const progress = total > 0 ? Math.min(1, Math.max(0, s.repaid / total)) : s.remaining === 0 ? 1 : 0;
-  // overpaid: the direction flips
-  const [owes, owed] = s.remaining >= 0 ? [debtor, creditor] : [creditor, debtor];
   return (
     <a className="row" href={href.detail('debts', d.id)}>
-      <AssetIcon asset={asset} size={34} />
       <div className="row-main">
         <div className="row-title">
           <Highlight text={d.name} query={q} />
           {s.remaining === 0 && <span className="badge">{t('debts.closed')}</span>}
         </div>
-        <div className="row-meta">
-          <span>
-            <Highlight text={owes?.name ?? '?'} query={q} /> → <Highlight text={owed?.name ?? '?'} query={q} />
+        <div className="row-meta debt-parties">
+          <ContactChip contact={debtor} query={q} />
+          <span>{t('debts.owesTo')}</span>
+          <span className="amount-chip">
+            <AssetIcon asset={asset} size={16} />
+            <Money value={d.amount} asset={asset} />
           </span>
+          <ContactChip contact={creditor} query={q} />
         </div>
         <div className="progress" title={t('debts.repaidPart', { p: Math.round(progress * 100) })}>
           <span style={{ width: `${progress * 100}%` }} />
