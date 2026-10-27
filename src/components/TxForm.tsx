@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useI18n } from '../i18n';
 import { amountInput, money, parseAmount, toLocalInput } from '../lib/format';
-import { saveDebt, saveTransaction } from '../lib/ops';
+import { categoriesInOrder, saveDebt, saveTransaction } from '../lib/ops';
 import { byName } from '../lib/search';
 import { debtEffect, getIndex, sortAccountsForPicker, type Index } from '../lib/stats';
 import { LIMITS, type Account, type Transaction } from '../lib/types';
@@ -132,13 +132,7 @@ function TxForm({ tx, prefill }: { tx?: Transaction; prefill?: Partial<Transacti
   const newDebtor = debtorId || toC;
   const newCreditor = creditorId || fromC;
 
-  const categories = useMemo(() => {
-    const sort = byName<(typeof data.categories)[number]>(locale);
-    return data.categories
-      .filter((c) => !c.parentId)
-      .sort(sort)
-      .flatMap((r) => [r, ...(ix.categoryChildren.get(r.id) ?? []).slice().sort(sort)]);
-  }, [data.categories, ix, locale]);
+  const categories = useMemo(() => categoriesInOrder(data.categories), [data.categories]);
 
   const amountN = parseAmount(amount);
   const feeN = fee.trim() ? parseAmount(fee) : null;

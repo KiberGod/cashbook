@@ -46,7 +46,7 @@ export function AssetsPage() {
           </button>
         }
       />
-      <div className="toolbar">
+      <div className="toolbar toolbar-wide">
         <SearchField value={q} onChange={setQ} placeholder={t('assets.search')} />
         <MultiSelect
           label={t('filter.form')}

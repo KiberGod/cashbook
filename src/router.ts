@@ -9,6 +9,7 @@ export type Route =
   | { name: 'transactions'; query: URLSearchParams }
   | { name: 'list'; kind: ListKind }
   | { name: 'detail'; kind: ListKind; id: string }
+  | { name: 'templates' }
   | { name: 'settings' }
 ;
 
@@ -25,6 +26,8 @@ export function parseHash(hash: string): Route {
       return { name: 'analytics', tab: q.get('tab') ?? '' };
     case 'transactions':
       return { name: 'transactions', query: q };
+    case 'templates':
+      return { name: 'templates' };
     case 'settings':
       return { name: 'settings' };
     default:
@@ -46,6 +49,7 @@ export const href = {
   transactions: (filters: Record<string, string | undefined> = {}) => `#/transactions${qs(filters)}`,
   list: (kind: ListKind) => `#/${kind}`,
   detail: (kind: ListKind, id: string) => `#/${kind}/${encodeURIComponent(id)}`,
+  templates: () => '#/templates',
   settings: () => '#/settings',
 };
 

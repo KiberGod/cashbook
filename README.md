@@ -34,7 +34,7 @@
 | `Services`     | `id, name, description, image, forms, order, createdAt, updatedAt`                                   |
 | `Contacts`     | `id, name, description, image, isSelf, createdAt, updatedAt`                                         |
 | `Accounts`     | `id, name, description, form, assetIds, initialBalances, requisite, contactId, serviceId, createdAt, updatedAt` |
-| `Categories`   | `id, name, description, image, parentId, createdAt, updatedAt`                                       |
+| `Categories`   | `id, name, description, image, parentId, order, createdAt, updatedAt`                                |
 | `Transactions` | `id, date, fromId, toId, assetId, amount, fee, feeAssetId, categoryId, debtId, description, createdAt, updatedAt` |
 | `Debts`        | `id, name, description, assetId, debtorId, creditorId, amount, createdAt, updatedAt`                 |
 

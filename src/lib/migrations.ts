@@ -21,6 +21,18 @@ type Step = (tables: RawTables) => RawTables;
 const STEPS: Record<number, Step> = {
   // services got a user-defined position; start from the order of the rows
   1: (t) => ({ ...t, services: t.services.map((s, i) => ({ ...s, order: i })) }),
+  // categories got a position among their siblings; start from the alphabetical order they were shown in
+  2: (t) => {
+    const next = new Map<string, number>();
+    const order = new Map<RawRecord, number>();
+    for (const c of [...t.categories].sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')))) {
+      const parent = String(c.parentId ?? '');
+      const i = next.get(parent) ?? 0;
+      order.set(c, i);
+      next.set(parent, i + 1);
+    }
+    return { ...t, categories: t.categories.map((c) => ({ ...c, order: order.get(c) })) };
+  },
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

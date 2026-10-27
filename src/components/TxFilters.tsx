@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { NONE, activeFilters, emptyFilter, type TxFilter } from '../lib/analytics';
-import { servicesInOrder } from '../lib/ops';
+import { categoryTree, servicesInOrder } from '../lib/ops';
 import { byName } from '../lib/search';
 import { sortAccountsForPicker, type Index } from '../lib/stats';
 import { FORMS } from '../lib/types';
@@ -25,18 +25,11 @@ export function useFilterOptions(ix: Index) {
     const contacts: Option[] = [...data.contacts]
       .sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || byName<typeof a>(locale)(a, b))
       .map((c) => ({ value: c.id, label: c.name, icon: <Avatar image={c.image} name={c.name} size={18} /> }));
-    const sortCat = byName<(typeof data.categories)[number]>(locale);
     const categories: Option[] = [
-      ...data.categories
-        .filter((c) => !c.parentId)
-        .sort(sortCat)
-        .flatMap((r) => [
-          { value: r.id, label: r.name },
-          ...(ix.categoryChildren.get(r.id) ?? [])
-            .slice()
-            .sort(sortCat)
-            .map((c) => ({ value: c.id, label: c.name, depth: 1 })),
-        ]),
+      ...categoryTree(data.categories).flatMap(({ root, children }) => [
+        { value: root.id, label: root.name },
+        ...children.map((c) => ({ value: c.id, label: c.name, depth: 1 })),
+      ]),
       { value: NONE, label: t('tx.noCategory') },
     ];
     return {

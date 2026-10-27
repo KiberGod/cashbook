@@ -68,6 +68,7 @@ const NAV: NavItem[][] = [
     { to: href.list('categories'), icon: 'tag', label: 'nav.categories', active: (r) => 'kind' in r && r.kind === 'categories' },
     { to: href.list('assets'), icon: 'currency', label: 'nav.assets', active: (r) => 'kind' in r && r.kind === 'assets' },
     { to: href.list('services'), icon: 'bank', label: 'nav.servicesShort', active: (r) => 'kind' in r && r.kind === 'services' },
+    { to: href.templates(), icon: 'template', label: 'nav.templates', active: (r) => r.name === 'templates' },
   ],
   [{ to: href.settings(), icon: 'settings', label: 'settings.title', active: (r) => r.name === 'settings' }],
 ];

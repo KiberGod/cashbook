@@ -1138,6 +1138,12 @@ select,
   flex: 0 1 auto;
 }
 
+/* the search takes the whole row; filters, if any, sit at its end */
+.toolbar-wide .search-field {
+  flex: 1 1 160px; /* small basis keeps a filter on the same row on a phone */
+  max-width: none;
+}
+
 .toolbar .field .field-label {
   font-size: 0.78rem;
 }
@@ -1482,18 +1488,43 @@ select,
   gap: 4px;
 }
 
+/* children hang off the parent's avatar on curved connectors */
 .tree-children {
+  --tree-gap: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-left: 26px;
-  padding-left: 14px;
-  border-left: 2px solid var(--border);
+  gap: var(--tree-gap);
+  padding-left: 44px;
 }
 
 .row-child {
+  position: relative;
   padding-top: 7px;
   padding-bottom: 7px;
+}
+
+.tree-children .row-child::before,
+.tree-children .row-child:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: -15px;
+  border-left: 2px solid var(--border-strong);
+  pointer-events: none;
+}
+
+/* from the row above down and round into this row */
+.tree-children .row-child::before {
+  top: calc(-1 * var(--tree-gap) - 1px);
+  height: calc(var(--tree-gap) + 23px); /* to the avatar's middle, also when the row wraps on a phone */
+  width: 12px;
+  border-bottom: 2px solid var(--border-strong);
+  border-bottom-left-radius: 10px;
+}
+
+/* the trunk goes on to the next child */
+.tree-children .row-child:not(:last-child)::after {
+  top: 0; /* overlaps the curve, so the rounded corner leaves no gap in the trunk */
+  bottom: calc(-1 * var(--tree-gap) - 1px);
 }
 
 .progress {
@@ -3145,6 +3176,10 @@ select,
     max-width: none;
   }
 
+  .toolbar-wide .search-field {
+    flex-basis: 160px;
+  }
+
   .form-grid,
   .form-grid-3 {
     grid-template-columns: minmax(0, 1fr);
@@ -3383,4 +3418,15 @@ select,
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow);
+}
+
+/* the spot a dragged category (with its block) or sub-category will land on */
+.tree-node-placeholder,
+.row-placeholder {
+  opacity: 0.35;
+}
+
+.tree .row {
+  user-select: none;
+  -webkit-touch-callout: none;
 }

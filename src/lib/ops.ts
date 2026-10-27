@@ -138,11 +138,48 @@ export function deleteAccount(d: Data, id: string): Data {
 
 // ---- categories ----
 
-export type CategoryFields = Fields<Category>;
+export type CategoryFields = Omit<Fields<Category>, 'order'>;
 
+const byOrder = (a: Category, b: Category) => a.order - b.order;
+const siblings = (list: Category[], parentId: string) => list.filter((c) => c.parentId === parentId).sort(byOrder);
+
+/** A new category, or one moved under another parent, goes to the end of its siblings; otherwise it keeps its place. */
 export function saveCategory(d: Data, f: CategoryFields, id?: string) {
-  const { list, entity } = upsert(d.categories, f, id);
+  const old = id ? d.categories.find((c) => c.id === id) : undefined;
+  const order = old && old.parentId === f.parentId ? old.order : Math.max(-1, ...siblings(d.categories, f.parentId).map((c) => c.order)) + 1;
+  const { list, entity } = upsert(d.categories, { ...f, order }, id);
   return { data: { ...d, categories: list }, entity };
+}
+
+/** Root categories in their order, each with its sub-categories in theirs. */
+export function categoryTree(list: Category[]): { root: Category; children: Category[] }[] {
+  return siblings(list, '').map((root) => ({ root, children: siblings(list, root.id) }));
+}
+
+/** The tree flattened: every root followed by its sub-categories. */
+export const categoriesInOrder = (list: Category[]) => categoryTree(list).flatMap((n) => [n.root, ...n.children]);
+
+/**
+ * Puts a category at `index` among the children of `parentId` ('' = the roots) and renumbers
+ * the lists it left and entered. The level never changes: roots stay roots, sub-categories
+ * only move between roots.
+ */
+export function moveCategory(d: Data, id: string, parentId: string, index: number): Data {
+  const cat = d.categories.find((c) => c.id === id);
+  if (!cat || !cat.parentId !== !parentId) return d;
+  if (parentId && !d.categories.some((c) => c.id === parentId && !c.parentId)) return d;
+  const target = siblings(d.categories, parentId).filter((c) => c.id !== id);
+  target.splice(Math.max(0, Math.min(index, target.length)), 0, cat);
+  const source = cat.parentId === parentId ? [] : siblings(d.categories, cat.parentId).filter((c) => c.id !== id);
+  const t = now();
+  const changed = new Map<string, Category>();
+  const place = (list: Category[], parent: string) =>
+    list.forEach((c, i) => {
+      if (c.order !== i || c.parentId !== parent) changed.set(c.id, { ...c, order: i, parentId: parent, updatedAt: t });
+    });
+  place(target, parentId);
+  place(source, cat.parentId);
+  return changed.size ? { ...d, categories: d.categories.map((c) => changed.get(c.id) ?? c) } : d;
 }
 
 /** Deletes the category with its sub-categories; their transactions stay, without a category. */

@@ -72,6 +72,8 @@ export interface Category extends Timestamps {
   image: string;
   /** '' for a root (1st level) category */
   parentId: string;
+  /** position among the categories with the same parent, ascending; set by drag and drop */
+  order: number;
 }
 
 export interface Transaction extends Timestamps {

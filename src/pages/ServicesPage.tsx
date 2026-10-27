@@ -1,10 +1,11 @@
-import { DndContext, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState, type FormEvent } from 'react';
 import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -36,17 +37,9 @@ export function ServicesPage() {
   // the order is only changed on the full list, never on search or filter results
   const filtered = !!q.trim() || forms.length > 0;
 
-  // drag starts after a small move (mouse) or a long press (touch), so clicks and scrolling still work
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates, keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] } }),
-  );
+  const sensors = useDragSensors();
   const onDragEnd = ({ active, over }: DragEndEvent) => {
-    // the click that follows a drop must not open the card (dnd-kit only stops its propagation)
-    const cancel = (e: MouseEvent) => e.preventDefault();
-    window.addEventListener('click', cancel, { capture: true, once: true });
-    setTimeout(() => window.removeEventListener('click', cancel, { capture: true }), 300);
+    swallowNextClick();
     if (over && active.id !== over.id) mutate((d) => moveService(d, String(active.id), String(over.id)));
   };
 
@@ -63,7 +56,7 @@ export function ServicesPage() {
           </button>
         }
       />
-      <div className="toolbar">
+      <div className="toolbar toolbar-wide">
         <SearchField value={q} onChange={setQ} placeholder={t('services.search')} />
         <MultiSelect
           label={t('filter.form')}
@@ -123,13 +116,8 @@ function ServiceCard({
       ref={setNodeRef}
       className={`row ${isDragging ? 'row-dragging' : ''}`}
       href={href.detail('services', s.id)}
-      draggable={false}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      // a long press starts dragging on touch screens, not the link menu
-      onContextMenu={(e) => (e.nativeEvent as PointerEvent).pointerType === 'touch' && e.preventDefault()}
-      aria-roledescription={sortable ? attributes['aria-roledescription'] : undefined}
-      aria-describedby={sortable ? attributes['aria-describedby'] : undefined}
-      {...listeners}
+      {...dragHandle(sortable, attributes, listeners)}
     >
       <Avatar image={s.image} name={s.name} size={48} />
       <div className="row-main">

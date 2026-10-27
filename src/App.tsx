@@ -11,6 +11,7 @@ import { DebtDetail, DebtsPage } from './pages/DebtsPage';
 import { AuthScreen, ConnectScreen, ErrorScreen, LoadingScreen, SetupScreen, UnlockScreen } from './pages/GateScreens';
 import { ServiceDetail, ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TemplatesPage } from './pages/TemplatesPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { parseHash, useHash, type Route } from './router';
 import { useStore } from './store/store';
@@ -48,6 +49,8 @@ function Page({ route }: { route: Route }) {
       const Detail = DETAILS[route.kind];
       return <Detail key={route.id} id={route.id} />;
     }
+    case 'templates':
+      return <TemplatesPage />;
     case 'settings':
       return <SettingsPage />;
   }

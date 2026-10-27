@@ -136,6 +136,12 @@ const PATHS = {
       <path d="M15 8.5h-4.25a2 2 0 0 0 0 4h2.5a2 2 0 0 1 0 4H9M12 6.5v11" />
     </>
   ),
+  template: (
+    <>
+      <rect x="8" y="8" width="13" height="13" rx="2" />
+      <path d="M4 16V5a2 2 0 0 1 2-2h11" />
+    </>
+  ),
   bank: <path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z" />,
   handshake: (
     <>

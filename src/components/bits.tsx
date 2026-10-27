@@ -8,19 +8,22 @@ import type { AssetMap } from '../lib/stats';
 import { readPref, writePref } from '../lib/storage';
 import type { Asset, Contact, FormId } from '../lib/types';
 
-/** Picture (url / builtin) or, without one, a text symbol or the first letter on a tinted circle. */
+/** Picture (url / builtin) or, without one, a text symbol, an icon or the first letter on a tinted circle. */
 export function Avatar({
   image,
   symbol,
   name,
   size = 36,
   square = false,
+  fallback,
 }: {
   image?: string;
   symbol?: string;
   name: string;
   size?: number;
   square?: boolean;
+  /** icon shown instead of the letter when there is no picture */
+  fallback?: UiIconName;
 }) {
   const [failed, setFailed] = useState(false);
   const src = image ? resolveImage(image) : '';
@@ -37,7 +40,7 @@ export function Avatar({
   const text = symbol || [...name.trim()][0]?.toUpperCase() || '?';
   return (
     <span className={cls} style={{ ...style, background: tint(name) }} aria-hidden="true">
-      {text}
+      {fallback ? <Icon name={fallback} size={Math.round(size * 0.5)} /> : text}
     </span>
   );
 }

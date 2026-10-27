@@ -93,13 +93,13 @@ export function presetData(lang: Lang): Data {
   }));
 
   const categories: Category[] = [];
-  for (const c of CATEGORIES) {
+  CATEGORIES.forEach((c, i) => {
     const id = newId();
-    categories.push({ id, name: pick(c.name, lang), description: '', image: '', parentId: '', ...stamps });
-    for (const ch of c.children) {
-      categories.push({ id: newId(), name: pick(ch, lang), description: '', image: '', parentId: id, ...stamps });
-    }
-  }
+    categories.push({ id, name: pick(c.name, lang), description: '', image: '', parentId: '', order: i, ...stamps });
+    c.children.forEach((ch, j) => {
+      categories.push({ id: newId(), name: pick(ch, lang), description: '', image: '', parentId: id, order: j, ...stamps });
+    });
+  });
 
   const self: Contact = { id: newId(), name: pick(SELF, lang), description: pick(SELF_DESC, lang), image: '', isSelf: true, ...stamps };
   const uah = assets[0];
