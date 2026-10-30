@@ -3,6 +3,7 @@ import { ActivityCalendar } from '../components/ActivityCalendar';
 import { AssetAmounts, Avatar, CardMenu, EmptyState, Highlight, LinkList, Pagination, SearchField, Stat, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
@@ -21,7 +22,7 @@ export function ContactsPage() {
   const { t, tn, locale } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useViewState('contacts.q', '');
   const [edit, setEdit] = useState<Contact | 'new' | null>(null);
   const [del, setDel] = useState<Contact | null>(null);
 
@@ -39,7 +40,6 @@ export function ContactsPage() {
       <PageHead
         title={t('nav.contacts')}
         icon={<Icon name="users" />}
-        subtitle={t('contacts.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit('new')}>
             <Icon name="plus" size={18} />
@@ -100,7 +100,7 @@ export function ContactDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   const [addAccount, setAddAccount] = useState(false);
   const [addDebt, setAddDebt] = useState(false);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useViewState(`contact.${id}.q`, '');
   const s = ix.contact.get(id);
   const side = useMemo(() => new Set(s?.accounts.map((a) => a.id) ?? []), [s]);
 

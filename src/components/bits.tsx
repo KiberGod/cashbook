@@ -1,11 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type SyntheticEvent, type TextareaHTMLAttributes } from 'react';
+import { createPortal } from 'react-dom';
 import { resolveImage } from '../icons/builtin';
 import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { entries, money } from '../lib/format';
-import { matchRanges, matchesAny } from '../lib/search';
+import { byName, matchRanges, matchesAny } from '../lib/search';
 import type { AssetMap } from '../lib/stats';
 import { readPref, writePref } from '../lib/storage';
+import { useViewState } from './viewState';
 import type { Asset, Contact, FormId } from '../lib/types';
 
 /** Picture (url / builtin) or, without one, a text symbol, an icon or the first letter on a tinted circle. */
@@ -58,13 +60,45 @@ export function AssetIcon({ asset, size = 22 }: { asset: Asset | undefined; size
 }
 
 /** A contact as a small pill with its picture; the user's own contact is tinted. */
-export function ContactChip({ contact, query = '' }: { contact: Contact | undefined; query?: string }) {
+export function ContactChip({
+  contact,
+  query = '',
+  href,
+  inLink = false,
+}: {
+  contact: Contact | undefined;
+  query?: string;
+  /** makes it a link to the contact */
+  href?: string;
+  /** it sits inside another link (a whole card): a link can't hold a link, so it navigates by script */
+  inLink?: boolean;
+}) {
   if (!contact) return <span className="contact-chip">?</span>;
-  return (
-    <span className={contact.isSelf ? 'contact-chip contact-chip-self' : 'contact-chip'}>
+  const cls = `contact-chip ${contact.isSelf ? 'contact-chip-self' : ''} ${href ? 'contact-chip-link' : ''}`;
+  const inner = (
+    <>
       <Avatar image={contact.image} name={contact.name} size={18} />
       <Highlight text={contact.name} query={query} />
-    </span>
+    </>
+  );
+  if (href && inLink) {
+    const go = (e: SyntheticEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      location.hash = href;
+    };
+    return (
+      <span className={cls} role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go(e)}>
+        {inner}
+      </span>
+    );
+  }
+  return href ? (
+    <a className={cls} href={href}>
+      {inner}
+    </a>
+  ) : (
+    <span className={cls}>{inner}</span>
   );
 }
 
@@ -252,11 +286,11 @@ export function Field({
 export const PAGE_SIZES = [10, 25, 50, 100];
 
 /** Slices a list into pages; the page size is remembered per list. Resets to page 1 when `resetKey` changes. */
+/** Pages a list. The page number is kept per list and filter state (resetKey), so Back returns to it; other filters start at page 1. */
 export function usePaged<T>(list: T[], prefKey: string, resetKey: unknown = null, defaultSize = 25) {
   const [size, setSizeState] = useState<number>(() => readPref(`pageSize.${prefKey}`, defaultSize));
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useViewState(`page.${prefKey}|${String(resetKey)}|${size}`, 1);
   const pages = Math.max(1, Math.ceil(list.length / size));
-  useEffect(() => setPage(1), [resetKey, size]);
   const current = Math.min(page, pages);
   const items = useMemo(() => list.slice((current - 1) * size, current * size), [list, current, size]);
   return {
@@ -275,7 +309,8 @@ export function usePaged<T>(list: T[], prefKey: string, resetKey: unknown = null
 
 export function Pagination({ p }: { p: ReturnType<typeof usePaged<unknown>> }) {
   const { t } = useI18n();
-  if (p.total <= PAGE_SIZES[0]) return null;
+  // shown on every non-empty list, so the page size can be picked before the list grows
+  if (!p.total) return null;
   const nums: (number | '…')[] = [];
   for (let i = 1; i <= p.pages; i++) {
     if (i === 1 || i === p.pages || Math.abs(i - p.page) <= 1) nums.push(i);
@@ -322,9 +357,50 @@ export interface Option {
   /** indent (sub-category) */
   depth?: number;
   group?: string;
+  /** a highlight after the label, e.g. "it's you" */
+  badge?: string;
+  /** shown but can't be picked (Picker) */
+  disabled?: boolean;
+}
+
+/** Contacts for a filter or picker: the user's own one first and marked, then the rest by name. */
+export function useContactOptions(contacts: Contact[]): Option[] {
+  const { t, locale } = useI18n();
+  return useMemo(
+    () =>
+      [...contacts]
+        .sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || byName<Contact>(locale)(a, b))
+        .map((c) => ({
+          value: c.id,
+          label: c.name,
+          icon: <Avatar image={c.image} name={c.name} size={18} />,
+          badge: c.isSelf ? t('contacts.meLong') : undefined,
+        })),
+    [contacts, locale, t],
+  );
 }
 
 /** Dropdown with checkboxes and a search box. An empty selection means "all". */
+/** Closes a popover on a pointer press outside its elements or on Escape (which then doesn't reach a modal under it). */
+function useDismiss(open: boolean, close: () => void, ...refs: RefObject<HTMLElement | null>[]) {
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: Event) => !refs.some((r) => r.current?.contains(e.target as Node)) && close();
+    const esc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      close();
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', esc, true);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', esc, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, close, ...refs]);
+}
+
 export function MultiSelect({
   label,
   options,
@@ -344,18 +420,8 @@ export function MultiSelect({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(open, close, ref);
 
   const selected = new Set(value);
   const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
@@ -397,6 +463,7 @@ export function MultiSelect({
                       <Highlight text={o.label} query={q} />
                       {o.hint && <small className="muted"> · {o.hint}</small>}
                     </span>
+                    {o.badge && <span className="badge badge-accent">{o.badge}</span>}
                   </label>
                 </div>
               );
@@ -412,6 +479,136 @@ export function MultiSelect({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * One choice from a list whose items may have icons. With `label` it is a toolbar filter
+ * that looks like MultiSelect; without, a form control that looks like a select.
+ */
+export function Picker({
+  value,
+  options,
+  onChange,
+  label,
+  placeholder = '—',
+  disabled = false,
+  searchable = options.length > 8,
+  ariaLabel,
+}: {
+  value: string;
+  options: Option[];
+  onChange: (v: string) => void;
+  label?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  searchable?: boolean;
+  ariaLabel?: string;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ top: number; left: number; width: number } | null>(null);
+  const close = useCallback(() => {
+    setOpen(false);
+    setQ('');
+  }, []);
+  useDismiss(open, close, ref, pop);
+
+  // the list floats over everything (a modal body would clip it): under the button, or above when there's no room
+  useLayoutEffect(() => {
+    if (!open) return setPlace(null);
+    const measure = () => {
+      const r = btn.current!.getBoundingClientRect();
+      const h = pop.current?.offsetHeight ?? 0;
+      const width = label ? Math.max(r.width, 240) : r.width;
+      const left = Math.max(8, Math.min(r.left, innerWidth - width - 8));
+      const below = r.bottom + 4;
+      const top = below + h > innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below;
+      setPlace({ top, left, width });
+    };
+    measure();
+    requestAnimationFrame(measure); // again once the list has its height
+    addEventListener('resize', measure);
+    addEventListener('scroll', measure, true);
+    return () => {
+      removeEventListener('resize', measure);
+      removeEventListener('scroll', measure, true);
+    };
+  }, [open, label, q]);
+
+  const current = options.find((o) => o.value === value);
+  const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
+  const pick = (v: string) => {
+    onChange(v);
+    close();
+  };
+
+  return (
+    <div className={label ? 'multiselect' : 'multiselect picker'} ref={ref}>
+      <button
+        ref={btn}
+        type="button"
+        className={label ? 'multiselect-btn' : 'select picker-btn'}
+        onClick={() => (open ? close() : setOpen(true))}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+      >
+        {label && <span className="multiselect-label">{label}</span>}
+        {current ? (
+          <span className={label ? 'multiselect-value' : 'picker-value'}>
+            {current.icon}
+            <span className="ellipsis">{current.label}</span>
+          </span>
+        ) : (
+          <span className="picker-value muted">{placeholder}</span>
+        )}
+        {label && <Icon name="chevronDown" size={16} />}
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={pop}
+            className="multiselect-pop picker-pop"
+            style={place ? { top: place.top, left: place.left, width: place.width } : { visibility: 'hidden' }}
+          >
+            {searchable && (
+              <div className="multiselect-search">
+                <SearchField value={q} onChange={setQ} placeholder={t('filter.search')} autoFocus />
+              </div>
+            )}
+            <div className="multiselect-list" role="listbox" aria-label={label ?? ariaLabel}>
+              {shown.length === 0 && <p className="muted multiselect-empty">{t('filter.noOptions')}</p>}
+              {shown.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  role="option"
+                  aria-selected={o.value === value}
+                  aria-disabled={o.disabled || undefined}
+                  disabled={o.disabled}
+                  className={`multiselect-item picker-item ${o.value === value ? 'active' : ''}`}
+                  onClick={() => pick(o.value)}
+                >
+                  {o.icon}
+                  <span className="ellipsis">
+                    <Highlight text={o.label} query={q} />
+                    {o.hint && <small className="muted"> · {o.hint}</small>}
+                  </span>
+                  {o.badge && <span className="badge badge-accent">{o.badge}</span>}
+                  {o.value === value && <Icon name="check" size={16} />}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

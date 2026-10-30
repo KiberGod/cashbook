@@ -45,8 +45,10 @@ export interface ContactStats {
 }
 
 export interface DebtStats {
-  /** > 0: debtor owes creditor; < 0: overpaid - creditor owes debtor */
+  /** what the debtor still owes; < 0 when overpaid (the debt is closed then, it never turns around) */
   remaining: number;
+  /** nothing left to pay */
+  closed: boolean;
   added: number;
   repaid: number;
   txs: Transaction[];
@@ -215,7 +217,7 @@ function build(d: Data): Index {
 
   // debts
   const debt = new Map<string, DebtStats>();
-  for (const x of d.debts) debt.set(x.id, { remaining: x.amount, added: 0, repaid: 0, txs: [] });
+  for (const x of d.debts) debt.set(x.id, { remaining: x.amount, closed: x.amount <= 0, added: 0, repaid: 0, txs: [] });
   const debtsById = byId(d.debts);
   for (const t of txSorted) {
     if (!t.debtId) continue;
@@ -227,17 +229,17 @@ function build(d: Data): Index {
     if (e > 0) s.added = round(s.added + t.amount);
     if (e < 0) s.repaid = round(s.repaid + t.amount);
     s.remaining = round(s.remaining + e * t.amount);
+    s.closed = s.remaining <= 0;
   }
   for (const x of d.debts) {
     const s = debt.get(x.id)!;
     contact.get(x.debtorId)?.debts.push(x);
     contact.get(x.creditorId)?.debts.push(x);
-    const [owes, owed, v] = s.remaining >= 0 ? [x.debtorId, x.creditorId, s.remaining] : [x.creditorId, x.debtorId, -s.remaining];
-    if (!v) continue;
-    const ow = contact.get(owes);
-    const od = contact.get(owed);
-    if (ow) add(ow.iOwe, x.assetId, v);
-    if (od) add(od.owedToMe, x.assetId, v);
+    if (s.closed) continue; // an overpayment is not a debt the other way
+    const ow = contact.get(x.debtorId);
+    const od = contact.get(x.creditorId);
+    if (ow) add(ow.iOwe, x.assetId, s.remaining);
+    if (od) add(od.owedToMe, x.assetId, s.remaining);
   }
   for (const c of contact.values()) {
     const m: AssetMap = new Map(c.balances);

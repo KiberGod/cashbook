@@ -172,7 +172,6 @@ const uk: Dict = {
   'stats.txInOut': 'Транзакції (вх./вих.)',
 
   // ---- активи
-  'assets.subtitle': 'Валюти, токени та криптомонети.',
   'assets.add': 'Актив',
   'assets.new': 'Новий актив',
   'assets.edit': 'Редагувати актив',
@@ -195,7 +194,6 @@ const uk: Dict = {
   'assets.usedText': 'Актив досі використовується. Спершу змініть або видаліть ці записи:',
 
   // ---- сервіси
-  'services.subtitle': 'Банки, біржі та гаманці, до яких належать ваші банківські та криптовалютні рахунки.',
   'services.add': 'Сервіс',
   'services.new': 'Новий фінансовий сервіс',
   'services.edit': 'Редагувати фінансовий сервіс',
@@ -215,7 +213,6 @@ const uk: Dict = {
   'services.deleteUsed': 'Цей сервіс використовують: {accounts}. Вони втратять зв’язок із ним, але самі рахунки залишаться.',
 
   // ---- категорії
-  'categories.subtitle': 'Категорії транзакцій.',
   'categories.add': 'Категорія',
   'categories.addChild': 'Підкатегорія',
   'categories.new': 'Нова категорія',
@@ -227,11 +224,10 @@ const uk: Dict = {
   'categories.related': "Пов'язані категорії",
   'categories.parentLocked': 'Категорія має підкатегорії, тому залишається на 1-му рівні.',
   'categories.deleteTitle': 'Видалити категорію «{name}»?',
-  'categories.deleteChildren': 'Також буде видалено: {list}.',
-  'categories.deleteTx': 'Її (або її підкатегорії) використовують: {tx}. Вони залишаться, але без категорії.',
+  'categories.deleteWithChildren': 'Разом із нею буде видалено всі її підкатегорії. Інформацію про них буде вирізано з усіх транзакцій.',
+  'categories.deleteText': 'Інформацію про неї буде вирізано з усіх транзакцій.',
 
   // ---- контакти
-  'contacts.subtitle': 'Люди й організації та їхні рахунки. Ви теж контакт.',
   'contacts.add': 'Контакт',
   'contacts.new': 'Новий контакт',
   'contacts.edit': 'Редагувати контакт',
@@ -247,7 +243,6 @@ const uk: Dict = {
   'contacts.hasDebts': 'У контакту є {debts}. Спершу видаліть або погасіть їх.',
 
   // ---- рахунки
-  'accounts.subtitle': 'Готівка, банківські картки та криптогаманці - ваші й чужі.',
   'accounts.yours': 'Це Ваш рахунок',
   'accounts.add': 'Рахунок',
   'accounts.new': 'Новий рахунок',
@@ -286,7 +281,6 @@ const uk: Dict = {
   'accounts.deleteWithTx': 'Разом із рахунком буде видалено: {tx}. Баланси рахунків з іншого боку зміняться.',
 
   // ---- борги
-  'debts.subtitle': 'Хто кому винен. Суми змінюються лише через пов’язані транзакції.',
   'debts.add': 'Борг',
   'debts.new': 'Новий борг',
   'debts.edit': 'Редагувати борг',
@@ -294,23 +288,28 @@ const uk: Dict = {
   'debts.search': 'Пошук за назвою або контактом…',
   'debts.empty': 'Боргів поки немає.',
   'debts.none': 'Відкритих боргів немає.',
+  'debts.status': 'Статус',
+  'debts.parties': 'Борг',
+  'debts.lent': 'позичив',
+  'debts.isOpen': 'відкритий',
+  'debts.overpaidBadge': 'переплата',
   'debts.open': 'Відкриті',
   'debts.closed': 'погашено',
   'debts.closedMany': 'Погашені',
   'debts.debtor': 'Хто винен',
   'debts.creditor': 'Кому',
+  'debts.noParty': '<відсутній>',
   'debts.owesTo': 'винен',
   'debts.swap': 'Поміняти місцями',
   'debts.asset': 'Актив',
   'debts.initial': 'Початкова сума',
-  'debts.amountHint': 'Може бути 0, якщо борг виникає з транзакції.',
-  'debts.amountLocked': 'Фіксується під час створення. Надалі борг змінюють лише пов’язані транзакції.',
   'debts.namePlaceholder': 'Позика на ноутбук…',
   'debts.sameParties': 'Виберіть два різні контакти',
   'debts.remaining': 'Залишок',
+  'debts.toRepay': 'Залишилось виплатити',
+  'debts.total': 'Увесь борг',
   'debts.added': 'Додано транзакціями',
   'debts.repaid': 'Погашено',
-  'debts.overpaid': 'Переплата - тепер кредитор винен різницю',
   'debts.repaidPart': 'Погашено {p}%',
   'debts.history': 'Історія',
   'debts.noHistory': 'Пов’язаних транзакцій поки немає.',
@@ -320,10 +319,9 @@ const uk: Dict = {
   'debts.owedToMeShort': 'Винні мені',
   'debts.iOweShort': 'Я винен',
   'debts.deleteTitle': 'Видалити борг «{name}»?',
-  'debts.deleteUnlink': 'З ним пов’язано: {tx}. Вони залишаться, лише без зв’язку з боргом.',
+  'debts.deleteUnlink': "З ним пов'язано: {tx}. Вони залишаться, зв'язок із цим боргом буде втрачено.",
 
   // ---- транзакції
-  'tx.subtitle': 'Усі транзакції, спершу новіші.',
   'tx.add': 'Транзакція',
   'tx.new': 'Нова транзакція',
   'tx.edit': 'Редагувати транзакцію',
@@ -372,7 +370,6 @@ const uk: Dict = {
   'tx.saved': 'Транзакцію збережено',
 
   // ---- головна
-  'dash.subtitle': 'Ваші гроші коротко - {month}',
   'dash.fullAnalytics': 'Повна аналітика',
   'dash.capital': 'Мій капітал',
   'dash.capitalHint': 'сума всіх моїх рахунків',
@@ -388,7 +385,6 @@ const uk: Dict = {
   'dash.noTx': 'Транзакцій поки немає - додайте першу кнопкою «+ Транзакція».',
 
   // ---- аналітика
-  'analytics.subtitle': 'Повна фінансова картина - виберіть період, рахунки та фільтри.',
   'analytics.overview': 'Огляд',
   'analytics.cashflow': 'Грошовий потік',
   'analytics.categories': 'Категорії',

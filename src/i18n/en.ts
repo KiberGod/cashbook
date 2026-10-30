@@ -172,7 +172,6 @@ const en = {
   'stats.txInOut': 'Transactions (in/out)',
 
   // ---- assets
-  'assets.subtitle': 'Currencies, tokens and crypto coins.',
   'assets.add': 'Asset',
   'assets.new': 'New asset',
   'assets.edit': 'Edit asset',
@@ -195,7 +194,6 @@ const en = {
   'assets.usedText': 'The asset is still in use. Change or delete these records first:',
 
   // ---- services
-  'services.subtitle': 'Banks, exchanges and wallets your bank and crypto accounts belong to.',
   'services.add': 'Service',
   'services.new': 'New financial service',
   'services.edit': 'Edit financial service',
@@ -215,7 +213,6 @@ const en = {
   'services.deleteUsed': '{accounts} use this service and will lose the link to it. The accounts themselves stay.',
 
   // ---- categories
-  'categories.subtitle': 'Transaction categories.',
   'categories.add': 'Category',
   'categories.addChild': 'Sub-category',
   'categories.new': 'New category',
@@ -227,11 +224,10 @@ const en = {
   'categories.related': 'Related categories',
   'categories.parentLocked': 'The category has sub-categories, so it stays on the 1st level.',
   'categories.deleteTitle': 'Delete category “{name}”?',
-  'categories.deleteChildren': 'Its {list} will be deleted too.',
-  'categories.deleteTx': '{tx} use it (or its sub-categories) - they stay, but without a category.',
+  'categories.deleteWithChildren': 'All its sub-categories will be deleted with it. They will be cut out of every transaction.',
+  'categories.deleteText': 'It will be cut out of every transaction.',
 
   // ---- contacts
-  'contacts.subtitle': 'People and organisations, with their accounts. You are a contact too.',
   'contacts.add': 'Contact',
   'contacts.new': 'New contact',
   'contacts.edit': 'Edit contact',
@@ -247,7 +243,6 @@ const en = {
   'contacts.hasDebts': 'The contact has {debts}. Delete or settle them first.',
 
   // ---- accounts
-  'accounts.subtitle': 'Cash, bank cards and crypto wallets - yours and other people’s.',
   'accounts.yours': 'Your account',
   'accounts.add': 'Account',
   'accounts.new': 'New account',
@@ -286,7 +281,6 @@ const en = {
   'accounts.deleteWithTx': '{tx} of this account will be deleted together with it, and the balances of the other side accounts will change.',
 
   // ---- debts
-  'debts.subtitle': 'Who owes whom. Amounts change only through linked transactions.',
   'debts.add': 'Debt',
   'debts.new': 'New debt',
   'debts.edit': 'Edit debt',
@@ -294,23 +288,28 @@ const en = {
   'debts.search': 'Search by name or contact…',
   'debts.empty': 'No debts yet.',
   'debts.none': 'No open debts.',
+  'debts.status': 'Status',
+  'debts.parties': 'Debt',
+  'debts.lent': 'lent to',
+  'debts.isOpen': 'open',
+  'debts.overpaidBadge': 'overpaid',
   'debts.open': 'Open',
   'debts.closed': 'settled',
   'debts.closedMany': 'Settled',
   'debts.debtor': 'Who owes',
   'debts.creditor': 'To whom',
+  'debts.noParty': '<none>',
   'debts.owesTo': 'owes',
   'debts.swap': 'Swap',
   'debts.asset': 'Asset',
   'debts.initial': 'Initial amount',
-  'debts.amountHint': 'Can be 0 if the debt arises from a transaction.',
-  'debts.amountLocked': 'Fixed at creation. Later only linked transactions change the debt.',
   'debts.namePlaceholder': 'Loan for a laptop…',
   'debts.sameParties': 'Choose two different contacts',
   'debts.remaining': 'Remaining',
+  'debts.toRepay': 'Left to repay',
+  'debts.total': 'Whole debt',
   'debts.added': 'Added by transactions',
   'debts.repaid': 'Repaid',
-  'debts.overpaid': 'Overpaid - now the creditor owes the difference',
   'debts.repaidPart': '{p}% repaid',
   'debts.history': 'History',
   'debts.noHistory': 'No linked transactions yet.',
@@ -320,10 +319,9 @@ const en = {
   'debts.owedToMeShort': 'Owed to me',
   'debts.iOweShort': 'I owe',
   'debts.deleteTitle': 'Delete debt “{name}”?',
-  'debts.deleteUnlink': '{tx} are linked to it - they stay, just no longer linked.',
+  'debts.deleteUnlink': 'Linked to it: {tx}. They stay, but lose the link to this debt.',
 
   // ---- transactions
-  'tx.subtitle': 'All transactions, newest first.',
   'tx.add': 'Transaction',
   'tx.new': 'New transaction',
   'tx.edit': 'Edit transaction',
@@ -372,7 +370,6 @@ const en = {
   'tx.saved': 'Transaction saved',
 
   // ---- dashboard
-  'dash.subtitle': 'Your money at a glance - {month}',
   'dash.fullAnalytics': 'Full analytics',
   'dash.capital': 'My capital',
   'dash.capitalHint': 'sum of all my accounts',
@@ -388,7 +385,6 @@ const en = {
   'dash.noTx': 'No transactions yet - add the first one with the “+ Transaction” button.',
 
   // ---- analytics
-  'analytics.subtitle': 'Your full financial picture - pick a period, accounts and filters.',
   'analytics.overview': 'Overview',
   'analytics.cashflow': 'Cash flow',
   'analytics.categories': 'Categories',

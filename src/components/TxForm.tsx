@@ -29,6 +29,7 @@ function AccountSelect({
   value,
   onChange,
   other,
+  onlyAsset,
   label,
   error,
 }: {
@@ -36,6 +37,8 @@ function AccountSelect({
   value: string;
   onChange: (id: string) => void;
   other: Account | undefined;
+  /** a payment of a debt: only accounts holding the debt's asset */
+  onlyAsset?: string;
   label: string;
   error: string | null;
 }) {
@@ -45,7 +48,7 @@ function AccountSelect({
     // the other side narrows the choice to accounts of the same form sharing an asset
     const list = sortAccountsForPicker(
       ix,
-      all.filter((a) => a.id !== other?.id && (!other || compatible(a, other))),
+      all.filter((a) => a.id !== other?.id && (!other || compatible(a, other)) && (!onlyAsset || a.assetIds.includes(onlyAsset))),
       locale,
     );
     const out: { label: string; items: Account[] }[] = [];
@@ -56,7 +59,7 @@ function AccountSelect({
       out[out.length - 1].items.push(a);
     }
     return out;
-  }, [ix, all, other, locale, t]);
+  }, [ix, all, other, onlyAsset, locale, t]);
 
   return (
     <Field label={label} error={error}>
@@ -107,11 +110,14 @@ function TxForm({ tx, prefill }: { tx?: Transaction; prefill?: Partial<Transacti
   const to = ix.accounts.get(toId);
   const form = from?.form ?? to?.form;
 
+  // linked to a debt: the money moves in the debt's asset
+  const debtAsset = debtMode === 'link' ? ix.debts.get(debtId)?.assetId : undefined;
+
   // assets both sides can hold
   const assetOptions = useMemo(() => {
     const ids = from && to ? from.assetIds.filter((x) => to.assetIds.includes(x)) : (from ?? to)?.assetIds ?? [];
-    return ids.map((x) => ix.assets.get(x)!).filter(Boolean);
-  }, [from, to, ix]);
+    return ids.filter((x) => !debtAsset || x === debtAsset).map((x) => ix.assets.get(x)!).filter(Boolean);
+  }, [from, to, ix, debtAsset]);
   const asset = assetOptions.find((a) => a.id === assetId) ?? assetOptions[0];
   const feeOptions = form === 'crypto' && from ? from.assetIds.map((x) => ix.assets.get(x)!).filter(Boolean) : asset ? [asset] : [];
   const feeAsset = feeOptions.find((a) => a.id === feeAssetId) ?? asset;
@@ -235,8 +241,8 @@ function TxForm({ tx, prefill }: { tx?: Transaction; prefill?: Partial<Transacti
     >
       <form id="tx-form" className="form" onSubmit={submit} noValidate>
         <div className="form-grid">
-          <AccountSelect ix={ix} value={fromId} onChange={setFromId} other={to} label={t('tx.from')} error={err('accounts')} />
-          <AccountSelect ix={ix} value={toId} onChange={setToId} other={from} label={t('tx.to')} error={err('accounts')} />
+          <AccountSelect ix={ix} value={fromId} onChange={setFromId} other={to} onlyAsset={debtAsset} label={t('tx.from')} error={err('accounts')} />
+          <AccountSelect ix={ix} value={toId} onChange={setToId} other={from} onlyAsset={debtAsset} label={t('tx.to')} error={err('accounts')} />
         </div>
         {(from || to) && <p className="field-hint">{t('tx.oneSideHint', { form: t(`form.${form!}`) })}</p>}
         <div className="form-grid form-grid-3">

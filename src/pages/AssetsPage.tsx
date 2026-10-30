@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -18,8 +19,8 @@ export function AssetsPage() {
   const { t, tn, locale } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
-  const [q, setQ] = useState('');
-  const [forms, setForms] = useState<string[]>([]);
+  const [q, setQ] = useViewState('assets.q', '');
+  const [forms, setForms] = useViewState<string[]>('assets.forms', []);
   const [edit, setEdit] = useState<Asset | 'new' | null>(null);
   const [del, setDel] = useState<Asset | null>(null);
 
@@ -38,7 +39,6 @@ export function AssetsPage() {
       <PageHead
         title={t('nav.assets')}
         icon={<Icon name="currency" />}
-        subtitle={t('assets.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit('new')}>
             <Icon name="plus" size={18} />

@@ -3,17 +3,17 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { NONE, activeFilters, emptyFilter, type TxFilter } from '../lib/analytics';
 import { categoryTree, servicesInOrder } from '../lib/ops';
-import { byName } from '../lib/search';
 import { sortAccountsForPicker, type Index } from '../lib/stats';
 import { FORMS } from '../lib/types';
 import { useStore } from '../store/store';
-import { AssetIcon, Avatar, Field, MultiSelect, SearchField, type Option } from './bits';
+import { AssetIcon, Avatar, Field, MultiSelect, SearchField, useContactOptions, type Option } from './bits';
 import { PeriodPicker } from './PeriodPicker';
 
 /** Option lists for the filter dropdowns, shared by the transactions page and analytics. */
 export function useFilterOptions(ix: Index) {
   const { t, locale } = useI18n();
   const data = useStore((s) => s.data);
+  const contacts = useContactOptions(data.contacts);
   return useMemo(() => {
     const contactName = (id: string) => (id ? (ix.contacts.get(id)?.name ?? '') : t('tx.noContact'));
     const accounts: Option[] = sortAccountsForPicker(ix, data.accounts, locale).map((a) => ({
@@ -22,9 +22,6 @@ export function useFilterOptions(ix: Index) {
       hint: a.assetIds.map((x) => ix.assets.get(x)?.code).join(', '),
       group: a.contactId === ix.self?.id ? t('tx.myAccounts') : contactName(a.contactId),
     }));
-    const contacts: Option[] = [...data.contacts]
-      .sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || byName<typeof a>(locale)(a, b))
-      .map((c) => ({ value: c.id, label: c.name, icon: <Avatar image={c.image} name={c.name} size={18} /> }));
     const categories: Option[] = [
       ...categoryTree(data.categories).flatMap(({ root, children }) => [
         { value: root.id, label: root.name },
@@ -38,12 +35,12 @@ export function useFilterOptions(ix: Index) {
       contacts,
       contactsWithNone: [...contacts, { value: NONE, label: t('tx.unknownParty') }],
       categories,
-      assets: data.assets.map((a) => ({ value: a.id, label: a.code, hint: a.name, icon: <AssetIcon asset={a} size={18} /> })),
+      assets: data.assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={18} /> })),
       services: servicesInOrder(data.services).map((s) => ({ value: s.id, label: s.name, icon: <Avatar image={s.image} name={s.name} size={18} /> })),
       forms: FORMS.map((f) => ({ value: f, label: t(`form.${f}`) })),
       debts: [...data.debts.map((d) => ({ value: d.id, label: d.name })), { value: NONE, label: t('tx.debtNone') }],
     };
-  }, [ix, data, locale, t]);
+  }, [ix, data, contacts, locale, t]);
 }
 
 export function TxFilters({ ix, value, onChange, showPeriod = true }: { ix: Index; value: TxFilter; onChange: (f: TxFilter) => void; showPeriod?: boolean }) {

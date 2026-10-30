@@ -747,12 +747,13 @@ mark.hl {
 }
 
 .form-grid-swap {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) 38px minmax(0, 1fr);
+  align-items: start;
 }
 
-.swap-btn {
-  margin-bottom: 3px;
+.swap-field .swap-btn {
+  align-self: center;
+  margin-top: 3px;
 }
 
 .field {
@@ -807,10 +808,13 @@ mark.hl {
   font-size: 16px; /* prevents iOS zoom on focus */
 }
 
-.field input:disabled,
+.field input:not([type='checkbox']):not([type='radio']):disabled,
 .select:disabled {
   opacity: 0.6;
   background: var(--surface-2);
+  /* browsers grey out disabled text on their own; keep it like the disabled pickers */
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
 }
 
 .field textarea {
@@ -1252,6 +1256,11 @@ select,
   white-space: nowrap;
 }
 
+.badge-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
 .badge-accent {
   background: var(--accent-soft);
   color: var(--accent);
@@ -1367,15 +1376,15 @@ select,
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 8px 10px 12px;
+  gap: 16px;
+  padding: 16px 10px 16px 20px;
   border-radius: 12px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1407,7 +1416,7 @@ select,
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
 }
 
 .row-title {
@@ -1445,8 +1454,6 @@ select,
 .rows-grid .row {
   align-items: flex-start;
   min-height: 92px;
-  padding: 16px 10px 16px 16px;
-  gap: 14px;
 }
 
 .rows-grid .row-main {
@@ -1472,8 +1479,14 @@ select,
   box-shadow: var(--shadow-lg);
 }
 
+/* cards inside a panel: a bit tighter than on a list page */
 .rows-compact .row {
-  padding: 8px 6px 8px 10px;
+  padding: 12px 8px 12px 16px;
+  gap: 12px;
+}
+
+.rows-compact .row-main {
+  gap: 6px;
 }
 
 .tree {
@@ -1488,6 +1501,16 @@ select,
   gap: 4px;
 }
 
+/* the tree keeps its own, denser rows */
+.tree-node .row {
+  padding: 10px 8px 10px 12px;
+  gap: 12px;
+}
+
+.tree-node .row-main {
+  gap: 3px;
+}
+
 /* children hang off the parent's avatar on curved connectors */
 .tree-children {
   --tree-gap: 4px;
@@ -1497,10 +1520,10 @@ select,
   padding-left: 44px;
 }
 
-.row-child {
+.row.row-child {
   position: relative;
-  padding-top: 7px;
-  padding-bottom: 7px;
+  padding: 7px 8px 7px 12px;
+  gap: 12px;
 }
 
 .tree-children .row-child::before,
@@ -1534,6 +1557,10 @@ select,
   overflow: hidden;
   max-width: 240px;
   margin-top: 3px;
+}
+
+.progress-full {
+  max-width: none;
 }
 
 .progress span {
@@ -1704,8 +1731,8 @@ select,
 .link-list a {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 4px;
+  gap: 12px;
+  padding: 11px 6px;
   border-bottom: 1px solid var(--border);
   color: var(--text);
 }
@@ -1866,6 +1893,12 @@ select,
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
+}
+
+/* filters sit at the right end of a wide toolbar, so their lists open leftwards */
+.toolbar-wide .multiselect-pop {
+  left: auto;
+  right: 0;
 }
 
 .multiselect-search {
@@ -2099,7 +2132,7 @@ select,
 }
 
 .tx-month {
-  padding: 8px 14px 6px;
+  padding: 8px 20px 6px;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -2111,8 +2144,8 @@ select,
 .tx-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 8px 10px 14px;
+  gap: 16px;
+  padding: 14px 10px 14px 20px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
@@ -3180,6 +3213,11 @@ select,
     flex-basis: 160px;
   }
 
+  /* with several filters the search keeps its own row */
+  .toolbar-wide:has(> :nth-child(3)) .search-field {
+    flex-basis: 100%;
+  }
+
   .form-grid,
   .form-grid-3 {
     grid-template-columns: minmax(0, 1fr);
@@ -3187,6 +3225,11 @@ select,
 
   .form-grid-swap {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .swap-field .field-label,
+  .swap-spacer {
+    display: none;
   }
 
   .swap-btn {
@@ -3211,6 +3254,14 @@ select,
     order: 3;
     width: 100%;
     text-align: left;
+    padding-left: 52px; /* under the text, past the avatar */
+  }
+
+  .row:not(:has(> .avatar)) .row-side {
+    padding-left: 0;
+  }
+
+  .tree-node .row-side {
     padding-left: 48px;
   }
 
@@ -3220,7 +3271,7 @@ select,
 
   .tx-row {
     align-items: flex-start;
-    padding-left: 10px;
+    padding-left: 16px;
   }
 
   .tx-desc {
@@ -3429,4 +3480,219 @@ select,
 .tree .row {
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* Picker as a form control: icon + label, opens a list like MultiSelect */
+.picker {
+  width: 100%;
+}
+
+.picker-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 34px 6px 10px !important;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  color: var(--text);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.picker-btn:disabled {
+  opacity: 0.6;
+  background-color: var(--surface-2);
+  cursor: default;
+}
+
+.picker-btn[aria-expanded='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.picker-value,
+.multiselect-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* rendered into <body> and placed by script, above modals */
+.picker-pop {
+  position: fixed;
+  z-index: 100;
+  max-width: calc(100vw - 16px);
+}
+
+.picker-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.picker-item.active {
+  background: var(--accent-soft);
+}
+
+.picker-item > svg:last-child {
+  margin-left: auto;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .panel .table-framed th,
+  .panel .table-framed td {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+}
+
+/* repayment bar with the repaid amount at the fill end and the whole debt at the bar end */
+.debt-bar {
+  position: relative;
+  width: 100%;
+  padding-bottom: 24px;
+}
+
+.debt-bar .progress {
+  margin-top: 4px;
+}
+
+.debt-bar-paidbox {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  min-width: max-content;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.debt-bar-whole {
+  position: absolute;
+  top: 15px;
+}
+
+.debt-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.debt-bar-label .avatar {
+  font-size: 9px !important;
+}
+
+.debt-bar-paid {
+  font-weight: 600;
+}
+
+.debt-bar-whole {
+  right: 0;
+  color: var(--muted);
+}
+
+.picker-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.picker-item:disabled:hover {
+  background: transparent;
+}
+
+/* debt page: a narrow summary next to the details */
+.debt-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch; /* both panels as tall as the taller one */
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.debt-summary,
+.debt-details {
+  gap: 16px;
+  align-items: stretch;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.debt-amount .amount-chip {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .debt-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.debt-details .debt-parties {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--muted);
+}
+
+.debt-details .debt-parties .amount-chip {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* label over value, in two columns */
+.cells {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cell-label {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.contact-chip-link {
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.contact-chip-link:hover {
+  text-decoration: none;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 480px) {
+  .cells {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { ActivityCalendar } from '../components/ActivityCalendar';
-import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, MultiSelect, Pagination, SearchField, Segmented, Stat, usePaged } from '../components/bits';
+import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, MultiSelect, Pagination, SearchField, Segmented, Stat, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
@@ -23,11 +24,14 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
   const { t, tn, locale } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
-  const [q, setQ] = useState('');
-  const [contacts, setContacts] = useState<string[]>(query?.get('contact') ? [query.get('contact')!] : []);
-  const [assets, setAssets] = useState<string[]>([]);
-  const [forms, setForms] = useState<string[]>([]);
-  const [services, setServices] = useState<string[]>([]);
+  const contactOptions = useContactOptions(data.contacts);
+  // a link with a contact (from a contact's page) has its own remembered filters
+  const scope = `accounts.${query?.get('contact') ?? ''}`;
+  const [q, setQ] = useViewState(`${scope}.q`, '');
+  const [contacts, setContacts] = useViewState<string[]>(`${scope}.contacts`, query?.get('contact') ? [query.get('contact')!] : []);
+  const [assets, setAssets] = useViewState<string[]>(`${scope}.assets`, []);
+  const [forms, setForms] = useViewState<string[]>(`${scope}.forms`, []);
+  const [services, setServices] = useViewState<string[]>(`${scope}.services`, []);
   const [edit, setEdit] = useState<Account | 'new' | null>(null);
   const [del, setDel] = useState<Account | null>(null);
 
@@ -55,7 +59,6 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
       <PageHead
         title={t('nav.accounts')}
         icon={<Icon name="wallet" />}
-        subtitle={t('accounts.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit('new')}>
             <Icon name="plus" size={18} />
@@ -68,9 +71,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
         <MultiSelect
           label={t('filter.contact')}
           options={[
-            ...[...data.contacts]
-              .sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || byName<typeof a>(locale)(a, b))
-              .map((c) => ({ value: c.id, label: c.name })),
+            ...contactOptions,
             { value: NO_CONTACT, label: t('tx.noContact') },
           ]}
           value={contacts}
@@ -78,7 +79,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
         />
         <MultiSelect
           label={t('filter.asset')}
-          options={data.assets.map((a) => ({ value: a.id, label: a.code, hint: a.name, icon: <AssetIcon asset={a} size={18} /> }))}
+          options={data.assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={18} /> }))}
           value={assets}
           onChange={setAssets}
         />
@@ -161,8 +162,8 @@ export function AccountDetail({ id }: { id: string }) {
   const account = ix.accounts.get(id);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
-  const [q, setQ] = useState('');
-  const [dir, setDir] = useState<'all' | 'in' | 'out'>('all');
+  const [q, setQ] = useViewState(`account.${id}.q`, '');
+  const [dir, setDir] = useViewState<'all' | 'in' | 'out'>(`account.${id}.dir`, 'all');
   const side = useMemo(() => new Set([id]), [id]);
   const s = ix.account.get(id);
 

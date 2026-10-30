@@ -24,7 +24,7 @@ export function SheetsMark() {
     <svg className="sheets-mark" width="14" height="18" viewBox="0 0 14 18" aria-hidden="true">
       <path d="M1.5 0H9l5 5v11.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 0 16.5v-15A1.5 1.5 0 0 1 1.5 0z" fill="#0f9d58" />
       <path d="M9 0l5 5H10a1 1 0 0 1-1-1z" fill="#87ceac" />
-      <path d="M3 8h8v6H3zm1 1v1.5h2.5V9zm3.5 0v1.5H10V9zM4 11.5V13h2.5v-1.5zm3.5 0V13H10v-1.5z" fill="#fff" fill-rule="evenodd" />
+      <path d="M3 8h8v6H3zm1 1v1.5h2.5V9zm3.5 0v1.5H10V9zM4 11.5V13h2.5v-1.5zm3.5 0V13H10v-1.5z" fill="#fff" fillRule="evenodd" />
     </svg>
   );
 }

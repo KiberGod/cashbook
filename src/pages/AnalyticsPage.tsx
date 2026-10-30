@@ -3,6 +3,7 @@ import { ActivityCalendar } from '../components/ActivityCalendar';
 import { AssetAmounts, AssetIcon, Avatar, EmptyState, Field, Money, MultiSelect, Segmented, Stat, usePref } from '../components/bits';
 import { BalanceChart, BarList, CashflowChart, ChartCard, CountBars, Donut, useBucketLabel } from '../components/charts';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { TxFilters, useFilterOptions } from '../components/TxFilters';
 import { TxList } from '../components/TxList';
 import { Icon, type UiIconName } from '../icons/ui';
@@ -69,10 +70,10 @@ export function AnalyticsPage({ tab }: { tab: string }) {
   const opts = useFilterOptions(ix);
   const active = TABS.some((x) => x.key === tab) ? tab : 'overview';
 
-  const [filter, setFilter] = useState<TxFilter>(emptyFilter);
-  const [accounts, setAccounts] = useState<string[]>([]);
+  const [filter, setFilter] = useViewState<TxFilter>('analytics.filter', emptyFilter);
+  const [accounts, setAccounts] = useViewState<string[]>('analytics.accounts', []);
   const [ownTransfers, setOwnTransfers] = usePref('analytics.ownTransfers', true);
-  const [assetPick, setAssetPick] = useState('');
+  const [assetPick, setAssetPick] = useViewState('analytics.asset', '');
   const [gPick, setGPick] = usePref<'auto' | Granularity>('analytics.granularity', 'auto');
 
   const own = useMemo(() => ownAccountIds(ix), [ix]);
@@ -89,7 +90,7 @@ export function AnalyticsPage({ tab }: { tab: string }) {
 
   return (
     <>
-      <PageHead title={t('nav.analytics')} icon={<Icon name="chart" />} subtitle={t('analytics.subtitle')} />
+      <PageHead title={t('nav.analytics')} icon={<Icon name="chart" />} />
       <div className="analytics-controls panel">
         <TxFilters ix={ix} value={filter} onChange={setFilter} />
         <div className="toolbar toolbar-tight">
@@ -793,7 +794,7 @@ function Debts({ c }: { c: Ctx }) {
   const selfId = c.ix.self?.id;
   const mine = data.debts.filter((d) => d.debtorId === selfId || d.creditorId === selfId);
   const others = data.debts.filter((d) => d.debtorId !== selfId && d.creditorId !== selfId);
-  const open = (list: typeof mine) => list.filter((d) => c.ix.debt.get(d.id)!.remaining !== 0);
+  const open = (list: typeof mine) => list.filter((d) => !c.ix.debt.get(d.id)!.closed);
   return (
     <>
       <Capital0 c={c} />

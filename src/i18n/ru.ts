@@ -172,7 +172,6 @@ const ru: Dict = {
   'stats.txInOut': 'Транзакции (вход./исх.)',
 
   // ---- активы
-  'assets.subtitle': 'Валюты, токены и криптомонеты.',
   'assets.add': 'Актив',
   'assets.new': 'Новый актив',
   'assets.edit': 'Изменить актив',
@@ -195,7 +194,6 @@ const ru: Dict = {
   'assets.usedText': 'Актив ещё используется. Сначала измените или удалите эти записи:',
 
   // ---- сервисы
-  'services.subtitle': 'Банки, биржи и кошельки, к которым относятся ваши банковские и крипто-счета.',
   'services.add': 'Сервис',
   'services.new': 'Новый финансовый сервис',
   'services.edit': 'Изменить финансовый сервис',
@@ -215,7 +213,6 @@ const ru: Dict = {
   'services.deleteUsed': 'Этот сервис используют: {accounts}. Связь с ним будет потеряна, но сами счета останутся.',
 
   // ---- категории
-  'categories.subtitle': 'Категории транзакций.',
   'categories.add': 'Категория',
   'categories.addChild': 'Подкатегория',
   'categories.new': 'Новая категория',
@@ -227,11 +224,10 @@ const ru: Dict = {
   'categories.related': 'Связанные категории',
   'categories.parentLocked': 'У категории есть подкатегории, поэтому она остаётся на 1-м уровне.',
   'categories.deleteTitle': 'Удалить категорию «{name}»?',
-  'categories.deleteChildren': 'Вместе с ней будут удалены её подкатегории: {list}.',
-  'categories.deleteTx': 'Используют её (или её подкатегории): {tx} - они останутся, но без категории.',
+  'categories.deleteWithChildren': 'Вместе с ней будут удалены все ее подкатегории. Информация о них будет вырезана из всех транзакций.',
+  'categories.deleteText': 'Информация о ней будет вырезана из всех транзакций.',
 
   // ---- контакты
-  'contacts.subtitle': 'Люди и организации вместе с их счетами. Вы - тоже контакт.',
   'contacts.add': 'Контакт',
   'contacts.new': 'Новый контакт',
   'contacts.edit': 'Изменить контакт',
@@ -247,7 +243,6 @@ const ru: Dict = {
   'contacts.hasDebts': 'У контакта есть долги: {debts}. Сначала удалите или погасите их.',
 
   // ---- счета
-  'accounts.subtitle': 'Наличные, банковские карты и крипто-кошельки - ваши и чужие.',
   'accounts.yours': 'Это Ваш счёт',
   'accounts.add': 'Счёт',
   'accounts.new': 'Новый счёт',
@@ -286,7 +281,6 @@ const ru: Dict = {
   'accounts.deleteWithTx': 'Вместе со счётом будут удалены его транзакции: {tx}. Балансы счетов на другой стороне изменятся.',
 
   // ---- долги
-  'debts.subtitle': 'Кто кому должен. Суммы меняются только через связанные транзакции.',
   'debts.add': 'Долг',
   'debts.new': 'Новый долг',
   'debts.edit': 'Изменить долг',
@@ -294,23 +288,28 @@ const ru: Dict = {
   'debts.search': 'Поиск по названию или контакту…',
   'debts.empty': 'Долгов пока нет.',
   'debts.none': 'Открытых долгов нет.',
+  'debts.status': 'Статус',
+  'debts.parties': 'Долг',
+  'debts.lent': 'дал в долг',
+  'debts.isOpen': 'открыт',
+  'debts.overpaidBadge': 'переплата',
   'debts.open': 'Открытые',
   'debts.closed': 'погашен',
   'debts.closedMany': 'Погашенные',
   'debts.debtor': 'Кто должен',
   'debts.creditor': 'Кому',
+  'debts.noParty': '<отсутствует>',
   'debts.owesTo': 'должен',
   'debts.swap': 'Поменять местами',
   'debts.asset': 'Актив',
   'debts.initial': 'Начальная сумма',
-  'debts.amountHint': 'Может быть 0, если долг возникает из транзакции.',
-  'debts.amountLocked': 'Задаётся при создании. Дальше долг меняют только связанные транзакции.',
   'debts.namePlaceholder': 'Заём на ноутбук…',
   'debts.sameParties': 'Выберите два разных контакта',
   'debts.remaining': 'Осталось',
+  'debts.toRepay': 'Осталось выплатить',
+  'debts.total': 'Весь долг',
   'debts.added': 'Добавлено транзакциями',
   'debts.repaid': 'Погашено',
-  'debts.overpaid': 'Переплата - теперь кредитор должен разницу',
   'debts.repaidPart': 'Погашено {p}%',
   'debts.history': 'История',
   'debts.noHistory': 'Связанных транзакций пока нет.',
@@ -320,10 +319,9 @@ const ru: Dict = {
   'debts.owedToMeShort': 'Мне должны',
   'debts.iOweShort': 'Я должен',
   'debts.deleteTitle': 'Удалить долг «{name}»?',
-  'debts.deleteUnlink': 'С ним связано: {tx} - они останутся, просто без связи с долгом.',
+  'debts.deleteUnlink': 'С ним связано: {tx}. Они останутся, связь с этим долгом будет утеряна.',
 
   // ---- транзакции
-  'tx.subtitle': 'Все транзакции, сначала новые.',
   'tx.add': 'Транзакция',
   'tx.new': 'Новая транзакция',
   'tx.edit': 'Изменить транзакцию',
@@ -372,7 +370,6 @@ const ru: Dict = {
   'tx.saved': 'Транзакция сохранена',
 
   // ---- главная
-  'dash.subtitle': 'Ваши финансы коротко - {month}',
   'dash.fullAnalytics': 'Полная аналитика',
   'dash.capital': 'Мой капитал',
   'dash.capitalHint': 'сумма всех моих счетов',
@@ -388,7 +385,6 @@ const ru: Dict = {
   'dash.noTx': 'Транзакций пока нет - добавьте первую кнопкой «+ Транзакция».',
 
   // ---- аналитика
-  'analytics.subtitle': 'Полная финансовая картина - выберите период, счета и фильтры.',
   'analytics.overview': 'Обзор',
   'analytics.cashflow': 'Денежный поток',
   'analytics.categories': 'Категории',

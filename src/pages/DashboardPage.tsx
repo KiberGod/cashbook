@@ -45,7 +45,7 @@ export function DashboardPage() {
   const myAccounts = sortAccountsForPicker(ix, self?.accounts ?? [], locale);
   const selfId = ix.self?.id;
   const openDebts = data.debts
-    .filter((d) => (d.creditorId === selfId || d.debtorId === selfId) && ix.debt.get(d.id)!.remaining !== 0)
+    .filter((d) => (d.creditorId === selfId || d.debtorId === selfId) && !ix.debt.get(d.id)!.closed)
     .slice(0, 5);
   const net: AssetMap = new Map();
   for (const [x, v] of month.sum.net) add(net, x, v);
@@ -55,7 +55,6 @@ export function DashboardPage() {
       <PageHead
         title={t('nav.dashboard')}
         icon={<Icon name="dashboard" />}
-        subtitle={t('dash.subtitle', { month: i18n.month(Date.now()) })}
         actions={
           <>
             <button type="button" className="btn btn-primary" onClick={() => openTxForm()}>

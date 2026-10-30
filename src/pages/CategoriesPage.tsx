@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Avatar, CardMenu, EmptyState, Field, Highlight, LinkList, SearchField } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
@@ -46,7 +47,7 @@ export function CategoriesPage() {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useViewState('categories.q', '');
   const [edit, setEdit] = useState<{ category: Category | null; parentId?: string } | null>(null);
   const [del, setDel] = useState<Category | null>(null);
   const [drag, setDrag] = useState<Layout | null>(null);
@@ -129,7 +130,6 @@ export function CategoriesPage() {
       <PageHead
         title={t('nav.categories')}
         icon={<Icon name="tag" />}
-        subtitle={t('categories.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit({ category: null })}>
             <Icon name="plus" size={18} />
@@ -364,26 +364,19 @@ export function CategoryDetail({ id }: { id: string }) {
 }
 
 function DeleteCategory({ category, onClose, onDeleted }: { category: Category; onClose: () => void; onDeleted?: () => void }) {
-  const { t, tn } = useI18n();
+  const { t } = useI18n();
   const data = useStore((s) => s.data);
-  const ix = getIndex(data);
-  const children = ix.categoryChildren.get(category.id) ?? [];
-  const txs = categoryTxTotal(ix, category.id);
+  const hasChildren = (getIndex(data).categoryChildren.get(category.id)?.length ?? 0) > 0;
   return (
     <ConfirmDialog
       title={t('categories.deleteTitle', { name: category.name })}
+      text={hasChildren ? t('categories.deleteWithChildren') : t('categories.deleteText')}
       onClose={onClose}
       onConfirm={() => {
         mutate((d) => deleteCategory(d, category.id));
         onDeleted?.();
       }}
-    >
-      <ul className="usage-list">
-        {children.length > 0 && <li>{t('categories.deleteChildren', { list: tn('counts.subcategories', children.length) })}</li>}
-        {txs > 0 && <li>{t('categories.deleteTx', { tx: tn('counts.transactions', txs) })}</li>}
-        <li>{t('common.cannotUndo')}</li>
-      </ul>
-    </ConfirmDialog>
+    />
   );
 }
 

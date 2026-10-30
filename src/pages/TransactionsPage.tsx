@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AssetAmounts, Stat } from '../components/bits';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { TxFilters } from '../components/TxFilters';
 import { TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
@@ -31,8 +32,8 @@ export function TransactionsPage({ query }: { query: URLSearchParams }) {
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
   const qs = query.toString();
-  const [filter, setFilter] = useState<TxFilter>(() => fromQuery(query));
-  useEffect(() => setFilter(fromQuery(query)), [qs]);
+  // remembered per link: the plain list and every pre-filtered link (from an account, a debt...) keep their own filters
+  const [filter, setFilter] = useViewState<TxFilter>(`transactions?${qs}`, () => fromQuery(query));
 
   const txs = useMemo(() => filterTransactions(ix, filter), [ix, filter]);
   const own = useMemo(() => ownAccountIds(ix), [ix]);
@@ -43,7 +44,6 @@ export function TransactionsPage({ query }: { query: URLSearchParams }) {
       <PageHead
         title={t('nav.transactions')}
         icon={<Icon name="swap" />}
-        subtitle={t('tx.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => openTxForm()}>
             <Icon name="plus" size={18} />

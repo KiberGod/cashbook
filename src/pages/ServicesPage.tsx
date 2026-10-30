@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
@@ -21,8 +22,8 @@ export function ServicesPage() {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
-  const [q, setQ] = useState('');
-  const [forms, setForms] = useState<string[]>([]);
+  const [q, setQ] = useViewState('services.q', '');
+  const [forms, setForms] = useViewState<string[]>('services.forms', []);
   const [edit, setEdit] = useState<Service | 'new' | null>(null);
   const [del, setDel] = useState<Service | null>(null);
 
@@ -48,7 +49,6 @@ export function ServicesPage() {
       <PageHead
         title={t('nav.services')}
         icon={<Icon name="bank" />}
-        subtitle={t('services.subtitle')}
         actions={
           <button type="button" className="btn btn-primary" onClick={() => setEdit('new')}>
             <Icon name="plus" size={18} />
