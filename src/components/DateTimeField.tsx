@@ -30,6 +30,7 @@ export function DateTimeField({
   ariaLabel,
   minYear = 2000,
   maxYear = new Date().getFullYear(),
+  clearable = true,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -39,6 +40,8 @@ export function DateTimeField({
   /** the years that can be picked (by default 2000 up to the current one) */
   minYear?: number;
   maxYear?: number;
+  /** a "×" that empties it (not for a required value) */
+  clearable?: boolean;
 }) {
   const { t, locale, dateTime } = useI18n();
   const current = parse(value);
@@ -125,7 +128,7 @@ export function DateTimeField({
         <Icon name="calendar" size={16} />
         <span className="ellipsis">{current ? dateTime(current.getTime()) : placeholder}</span>
       </button>
-      {current && (
+      {current && clearable && (
         <button type="button" className="icon-btn dtf-clear" onClick={() => onChange('')} aria-label={t('filter.clear')} title={t('filter.clear')}>
           <Icon name="close" size={14} />
         </button>

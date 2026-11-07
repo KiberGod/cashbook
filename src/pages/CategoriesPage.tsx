@@ -12,11 +12,12 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { categoryTree, deleteCategory, moveCategory, saveCategory } from '../lib/ops';
 import { matchesAny } from '../lib/search';
-import { categoryTxTotal, getIndex } from '../lib/stats';
+import { categoryTxTotal, getIndex, templatesUsing } from '../lib/stats';
 import type { Category } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { NotFound } from './common';
+import { RelatedTemplates, TemplateNames } from '../components/Templates';
 
 /** Where every category sits while dragging: root ids, and the sub-category ids of each root. */
 interface Layout {
@@ -327,20 +328,24 @@ export function CategoryDetail({ id }: { id: string }) {
         }
       />
       <div className="detail-grid">
-        <section className="panel">
-          <h2>{t('common.details')}</h2>
-          <dl className="kv">
-            <dt>{t('common.description')}</dt>
-            <dd className="pre">{category.description || <span className="muted">—</span>}</dd>
-          </dl>
-        </section>
+        <div className="detail-col">
+          <section className="panel">
+            <h2>{t('common.details')}</h2>
+            <dl className="kv">
+              <dt>{t('common.description')}</dt>
+              <dd className="pre">{category.description || <span className="muted">—</span>}</dd>
+            </dl>
+          </section>
+          <RelatedTemplates kind="categories" id={id} />
+        </div>
         <section className="panel">
           <h2>{t('categories.related')}</h2>
-          {/* this category opens its transactions (a root's include its sub-categories), the others open their pages */}
+          {/* this category opens its transactions (a root's include its sub-categories), the others open their pages,
+              so the parent row says where it leads instead of a count */}
           <LinkList
             empty="—"
             items={[
-              ...(parent ? [{ href: href.detail('categories', parent.id), label: parent.name, icon: <Avatar image={parent.image} name={parent.name} size={24} fallback="tag" />, meta: tn('counts.transactions', categoryTxTotal(ix, parent.id)) }] : []),
+              ...(parent ? [{ href: href.detail('categories', parent.id), label: parent.name, icon: <Avatar image={parent.image} name={parent.name} size={24} fallback="tag" />, meta: t('categories.toParent') }] : []),
               {
                 href: href.transactions({ category: id }),
                 label: category.name,
@@ -366,7 +371,9 @@ export function CategoryDetail({ id }: { id: string }) {
 function DeleteCategory({ category, onClose, onDeleted }: { category: Category; onClose: () => void; onDeleted?: () => void }) {
   const { t } = useI18n();
   const data = useStore((s) => s.data);
-  const hasChildren = (getIndex(data).categoryChildren.get(category.id)?.length ?? 0) > 0;
+  const ix = getIndex(data);
+  const hasChildren = (ix.categoryChildren.get(category.id)?.length ?? 0) > 0;
+  const templates = templatesUsing(ix, 'categories', category.id);
   return (
     <ConfirmDialog
       title={t('categories.deleteTitle', { name: category.name })}
@@ -376,7 +383,14 @@ function DeleteCategory({ category, onClose, onDeleted }: { category: Category; 
         mutate((d) => deleteCategory(d, category.id));
         onDeleted?.();
       }}
-    />
+    >
+      {templates.length > 0 && (
+        <>
+          <p className="muted">{t('categories.deleteTemplates', { n: templates.length })}</p>
+          <TemplateNames list={templates} />
+        </>
+      )}
+    </ConfirmDialog>
   );
 }
 

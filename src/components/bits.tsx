@@ -176,6 +176,45 @@ export interface MenuAction {
   disabled?: boolean;
 }
 
+/** A "?" beside a field's title: its text shows in a bubble on hover or focus. */
+export function InfoTip({ children, label }: { children: ReactNode; /** for screen readers */ label: string }) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  // over everything, so a modal body doesn't clip it
+  const place = useFloating(open, btn, pop, 'left', () => Math.min(280, innerWidth - 16));
+  const show = () => setOpen(true);
+  const hide = () => setOpen(false);
+  return (
+    <>
+      <button
+        ref={btn}
+        type="button"
+        className="infotip"
+        aria-label={label}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onFocus={show}
+        onBlur={hide}
+        // a tap on a phone shows it; inside a <label> it must not reach the input
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }}
+      >
+        <Icon name="info" size={14} />
+      </button>
+      {open &&
+        createPortal(
+          <div ref={pop} className="infotip-pop" role="tooltip" style={place ? { top: place.top, left: place.left, width: place.width } : { visibility: 'hidden' }}>
+            {children}
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 /** A small button that copies `value`: its icon turns into a tick for a moment and a toast says so. */
 export function CopyButton({ value, label, copied }: { value: string; /** what is copied, for screen readers */ label: string; /** the toast */ copied: string }) {
   const { t } = useI18n();
@@ -396,6 +435,12 @@ export interface Option {
   /** indent (sub-category) */
   depth?: number;
   group?: string;
+  /** shown before the group's name in its heading (Picker), e.g. the contact's picture */
+  groupIcon?: ReactNode;
+  /** what the closed Picker shows when this item is chosen, instead of its icon and label */
+  chosen?: ReactNode;
+  /** its row in the Picker's list, instead of its icon, label and hint (which still serve the search) */
+  render?: ReactNode;
   /** a highlight after the label, e.g. "it's you" */
   badge?: string;
   /** shown but can't be picked (Picker) */
@@ -561,6 +606,8 @@ type PickerProps = {
   disabled?: boolean;
   searchable?: boolean;
   ariaLabel?: string;
+  /** least width of the list (a filter's list is at least 240px wide) */
+  popWidth?: number;
 } & ({ multiple?: false; value: string; onChange: (v: string) => void } | { multiple: true; value: string[]; onChange: (v: string[]) => void });
 
 /**
@@ -569,7 +616,7 @@ type PickerProps = {
  * `multiple` lets several items be ticked; the list then stays open while picking.
  */
 export function Picker(props: PickerProps) {
-  const { options, label, placeholder = '—', disabled = false, searchable = options.length > 8, ariaLabel } = props;
+  const { options, label, placeholder = '—', disabled = false, searchable = options.length > 8, ariaLabel, popWidth = label ? 240 : 0 } = props;
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -582,11 +629,13 @@ export function Picker(props: PickerProps) {
   }, []);
   useDismiss(open, close, ref, pop);
   // the list floats over everything (a modal body would clip it)
-  const place = useFloating(open, btn, pop, 'left', (w) => (label ? Math.max(w, 240) : w), [label, q]);
+  const place = useFloating(open, btn, pop, 'left', (w) => Math.min(Math.max(w, popWidth), innerWidth - 16), [popWidth, q]);
 
   const selected = new Set(props.multiple ? props.value : [props.value]);
   const current = options.filter((o) => selected.has(o.value));
-  const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
+  // a group's name finds all of its items (a contact's name, its accounts)
+  const shown = options.filter((o) => matchesAny(q, o.label, o.hint, o.group));
+  let lastGroup: string | undefined;
   const pick = (v: string) => {
     if (props.multiple) return props.onChange(selected.has(v) ? props.value.filter((x) => x !== v) : [...props.value, v]);
     props.onChange(v);
@@ -610,8 +659,12 @@ export function Picker(props: PickerProps) {
           <span className={label ? 'multiselect-value' : 'picker-value'}>
             {current.map((o) => (
               <span key={o.value} className="picker-chosen">
-                {o.icon}
-                <span className="ellipsis">{o.label}</span>
+                {o.chosen ?? (
+                  <>
+                    {o.icon}
+                    <span className="ellipsis">{o.label}</span>
+                  </>
+                )}
               </span>
             ))}
           </span>
@@ -634,26 +687,42 @@ export function Picker(props: PickerProps) {
             )}
             <div className="multiselect-list" role="listbox" aria-label={label ?? ariaLabel} aria-multiselectable={props.multiple || undefined}>
               {shown.length === 0 && <p className="muted multiselect-empty">{t('filter.noOptions')}</p>}
-              {shown.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="option"
-                  aria-selected={selected.has(o.value)}
-                  aria-disabled={o.disabled || undefined}
-                  disabled={o.disabled}
-                  className={`multiselect-item picker-item ${selected.has(o.value) ? 'active' : ''}`}
-                  onClick={() => pick(o.value)}
-                >
-                  {o.icon}
-                  <span className="ellipsis">
-                    <Highlight text={o.label} query={q} />
-                    {o.hint && <small className="muted"> · {o.hint}</small>}
-                  </span>
-                  {o.badge && <span className="badge badge-accent">{o.badge}</span>}
-                  {selected.has(o.value) && <Icon name="check" size={16} />}
-                </button>
-              ))}
+              {shown.map((o) => {
+                const head = o.group && o.group !== lastGroup ? o.group : null;
+                lastGroup = o.group;
+                return (
+                  <div key={o.value} role="presentation">
+                    {head && (
+                      <div className="multiselect-group picker-group">
+                        {o.groupIcon}
+                        <span className="ellipsis">{head}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={selected.has(o.value)}
+                      aria-disabled={o.disabled || undefined}
+                      disabled={o.disabled}
+                      className={`multiselect-item picker-item ${selected.has(o.value) ? 'active' : ''}`}
+                      style={o.depth ? { paddingLeft: 10 + o.depth * 18 } : undefined}
+                      onClick={() => pick(o.value)}
+                    >
+                      {o.render ?? (
+                        <>
+                          {o.icon}
+                          <span className="ellipsis">
+                            <Highlight text={o.label} query={q} />
+                            {o.hint && <small className="muted"> · {o.hint}</small>}
+                          </span>
+                        </>
+                      )}
+                      {o.badge && <span className="badge badge-accent">{o.badge}</span>}
+                      {selected.has(o.value) && <Icon name="check" size={16} />}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>,
           document.body,
@@ -796,13 +865,20 @@ export function TotalsTable({ head, rows, footer, empty }: { head: string; rows:
 }
 
 /** Small "used by" link list for back-references. */
-export function LinkList({ items, empty }: { items: { href: string; label: string; icon?: ReactNode; badge?: ReactNode; meta?: ReactNode }[]; empty: string }) {
+/** Rows with an arrow at the end: a link (href) or, for things without a page, a button (onClick). */
+export function LinkList({
+  items,
+  empty,
+}: {
+  items: { href?: string; onClick?: () => void; key?: string; label: string; icon?: ReactNode; badge?: ReactNode; meta?: ReactNode }[];
+  empty: string;
+}) {
   if (!items.length) return <p className="muted">{empty}</p>;
   return (
     <ul className="link-list">
-      {items.map((x) => (
-        <li key={x.href + x.label}>
-          <a href={x.href}>
+      {items.map((x) => {
+        const content = (
+          <>
             {x.icon}
             <span className="link-list-label">
               {x.label}
@@ -810,9 +886,20 @@ export function LinkList({ items, empty }: { items: { href: string; label: strin
             </span>
             {x.meta && <span className="link-list-meta">{x.meta}</span>}
             <Icon name="chevronRight" size={16} />
-          </a>
-        </li>
-      ))}
+          </>
+        );
+        return (
+          <li key={x.key ?? (x.href ?? '') + x.label}>
+            {x.href ? (
+              <a href={x.href}>{content}</a>
+            ) : (
+              <button type="button" className="link-list-btn" onClick={x.onClick}>
+                {content}
+              </button>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

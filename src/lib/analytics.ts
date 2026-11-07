@@ -1,6 +1,7 @@
+import { parseAmount } from './format';
 import { matchesAny } from './search';
 import { add, round, withChildren, type AssetMap, type Index } from './stats';
-import type { Account, Transaction } from './types';
+import type { Account, Template, Transaction } from './types';
 
 // ---------------------------------------------------------------------------
 // Periods
@@ -72,12 +73,8 @@ export const NONE = '__none__';
 export interface TxFilter {
   q: string;
   period: Period;
-  /** account on either side */
-  accounts: string[];
   fromAccounts: string[];
   toAccounts: string[];
-  /** contact on either side */
-  contacts: string[];
   fromContacts: string[];
   toContacts: string[];
   forms: string[];
@@ -90,16 +87,16 @@ export interface TxFilter {
   direction: 'all' | 'in' | 'out' | 'internal' | 'foreign';
   minAmount: string;
   maxAmount: string;
-  withFee: boolean;
+  /** a date-time range on top of `period` (local, as a datetime-local input gives it; the "to" minute included) */
+  from: string;
+  to: string;
 }
 
 export const emptyFilter = (): TxFilter => ({
   q: '',
   period: { mode: 'all', anchor: Date.now() },
-  accounts: [],
   fromAccounts: [],
   toAccounts: [],
-  contacts: [],
   fromContacts: [],
   toContacts: [],
   forms: [],
@@ -110,13 +107,14 @@ export const emptyFilter = (): TxFilter => ({
   direction: 'all',
   minAmount: '',
   maxAmount: '',
-  withFee: false,
+  from: '',
+  to: '',
 });
 
 /** Number of filters that differ from the defaults (search and period excluded). */
 export function activeFilters(f: TxFilter): number {
-  const lists = [f.accounts, f.fromAccounts, f.toAccounts, f.contacts, f.fromContacts, f.toContacts, f.forms, f.assets, f.categories, f.services, f.debts];
-  return lists.filter((l) => l.length).length + (f.direction !== 'all' ? 1 : 0) + (f.minAmount || f.maxAmount ? 1 : 0) + (f.withFee ? 1 : 0);
+  const lists = [f.fromAccounts, f.toAccounts, f.fromContacts, f.toContacts, f.forms, f.assets, f.categories, f.services, f.debts];
+  return lists.filter((l) => l.length).length + (f.direction !== 'all' ? 1 : 0) + (f.minAmount || f.maxAmount ? 1 : 0) + (f.from || f.to ? 1 : 0);
 }
 
 export function ownAccountIds(ix: Index): Set<string> {
@@ -124,14 +122,17 @@ export function ownAccountIds(ix: Index): Set<string> {
   return new Set([...ix.accounts.values()].filter((a) => selfId && a.contactId === selfId).map((a) => a.id));
 }
 
-/** Applies the filter to the newest-first list of all transactions. */
-export function filterTransactions(ix: Index, f: TxFilter): Transaction[] {
-  const range = periodRange(f.period);
+/** What the filter looks at: a transaction, or a template (whose amount may be unset). */
+type Filterable = Pick<Transaction, 'fromId' | 'toId' | 'assetId' | 'categoryId' | 'debtId' | 'description'> & { amount: number | null };
+
+/**
+ * The filter's checks on everything but the date, shared by transactions and templates.
+ * `texts`: more texts the search looks in (e.g. a template's name).
+ */
+function matcher(ix: Index, f: TxFilter) {
   const set = (l: string[]) => (l.length ? new Set(l) : null);
-  const accounts = set(f.accounts);
   const fromAccounts = set(f.fromAccounts);
   const toAccounts = set(f.toAccounts);
-  const contacts = set(f.contacts);
   const fromContacts = set(f.fromContacts);
   const toContacts = set(f.toContacts);
   const forms = set(f.forms);
@@ -140,30 +141,22 @@ export function filterTransactions(ix: Index, f: TxFilter): Transaction[] {
   const debts = set(f.debts);
   const categories = f.categories.length ? withChildren(ix, f.categories) : null;
   const own = f.direction !== 'all' ? ownAccountIds(ix) : null;
-  const min = f.minAmount ? Number(f.minAmount.replace(',', '.')) : null;
-  const max = f.maxAmount ? Number(f.maxAmount.replace(',', '.')) : null;
+  const min = f.minAmount.trim() ? parseAmount(f.minAmount) : null;
+  const max = f.maxAmount.trim() ? parseAmount(f.maxAmount) : null;
   const contactOf = (id: string) => (id ? ix.accounts.get(id)?.contactId || NONE : NONE);
   const q = f.q.trim();
 
-  return ix.txSorted.filter((t) => {
-    if (range) {
-      const time = ix.time.get(t.id)!;
-      if (time < range[0] || time >= range[1]) return false;
-    }
-    if (accounts && !accounts.has(t.fromId) && !accounts.has(t.toId)) return false;
+  return (t: Filterable, texts: string[] = []) => {
     if (fromAccounts && !fromAccounts.has(t.fromId || NONE)) return false;
     if (toAccounts && !toAccounts.has(t.toId || NONE)) return false;
-    const fc = contactOf(t.fromId);
-    const tc = contactOf(t.toId);
-    if (contacts && !contacts.has(fc) && !contacts.has(tc)) return false;
-    if (fromContacts && !fromContacts.has(fc)) return false;
-    if (toContacts && !toContacts.has(tc)) return false;
-    const from = ix.accounts.get(t.fromId);
-    const to = ix.accounts.get(t.toId);
-    if (forms && !forms.has((from ?? to)?.form ?? '')) return false;
+    if (fromContacts && !fromContacts.has(contactOf(t.fromId))) return false;
+    if (toContacts && !toContacts.has(contactOf(t.toId))) return false;
+    const fromAcc = ix.accounts.get(t.fromId);
+    const toAcc = ix.accounts.get(t.toId);
+    if (forms && !forms.has((fromAcc ?? toAcc)?.form ?? '')) return false;
     if (assets && !assets.has(t.assetId)) return false;
     if (categories && !categories.has(t.categoryId || NONE)) return false;
-    if (services && !services.has(from?.serviceId ?? '') && !services.has(to?.serviceId ?? '')) return false;
+    if (services && !services.has(fromAcc?.serviceId ?? '') && !services.has(toAcc?.serviceId ?? '')) return false;
     if (debts && !debts.has(t.debtId || NONE)) return false;
     if (own) {
       const fo = own.has(t.fromId);
@@ -171,32 +164,55 @@ export function filterTransactions(ix: Index, f: TxFilter): Transaction[] {
       const dir = fo && to_ ? 'internal' : fo ? 'out' : to_ ? 'in' : 'foreign';
       if (dir !== f.direction) return false;
     }
-    if (min !== null && Number.isFinite(min) && t.amount < min) return false;
-    if (max !== null && Number.isFinite(max) && t.amount > max) return false;
-    if (f.withFee && !t.fee) return false;
+    // an amount range leaves out what has no amount (a template entered each time)
+    if ((min !== null || max !== null) && t.amount === null) return false;
+    if (min !== null && t.amount! < min) return false;
+    if (max !== null && t.amount! > max) return false;
     if (q) {
       const cat = ix.categories.get(t.categoryId);
       const parent = cat?.parentId ? ix.categories.get(cat.parentId) : undefined;
       if (
         !matchesAny(
           q,
+          ...texts,
           t.description,
-          from?.name,
-          to?.name,
-          from?.requisite,
-          to?.requisite,
-          ix.contacts.get(from?.contactId ?? '')?.name,
-          ix.contacts.get(to?.contactId ?? '')?.name,
+          fromAcc?.name,
+          toAcc?.name,
+          fromAcc?.requisite,
+          toAcc?.requisite,
+          ix.contacts.get(fromAcc?.contactId ?? '')?.name,
+          ix.contacts.get(toAcc?.contactId ?? '')?.name,
           cat?.name,
           parent?.name,
           ix.debts.get(t.debtId)?.name,
-          String(t.amount),
+          t.amount === null ? undefined : String(t.amount),
         )
       )
         return false;
     }
     return true;
+  };
+}
+
+/** Applies the filter to the newest-first list of all transactions. */
+export function filterTransactions(ix: Index, f: TxFilter): Transaction[] {
+  const range = periodRange(f.period);
+  const from = f.from ? new Date(f.from).getTime() : null;
+  const to = f.to ? new Date(f.to).getTime() + 60_000 : null;
+  const fits = matcher(ix, f);
+  return ix.txSorted.filter((t) => {
+    const time = ix.time.get(t.id)!;
+    if (range && (time < range[0] || time >= range[1])) return false;
+    if (from !== null && time < from) return false;
+    if (to !== null && time >= to) return false;
+    return fits(t);
   });
+}
+
+/** Applies the filter (its date fields aside) to the templates, in the user's order; the search also looks at their names. */
+export function filterTemplates(ix: Index, f: TxFilter): Template[] {
+  const fits = matcher(ix, f);
+  return ix.templateList.filter((x) => fits(x, [x.name]));
 }
 
 // ---------------------------------------------------------------------------

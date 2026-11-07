@@ -8,12 +8,13 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteAsset, saveAsset } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
-import { getIndex, round } from '../lib/stats';
+import { getIndex, round, templatesUsing } from '../lib/stats';
 import { FORMS, LIMITS, type Asset, type FormId } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { DebtRow } from './DebtsPage';
 import { NotFound } from './common';
+import { RelatedTemplates } from '../components/Templates';
 
 export function AssetsPage() {
   const { t, tn, locale } = useI18n();
@@ -136,28 +137,31 @@ export function AssetDetail({ id }: { id: string }) {
         }
       />
       <div className="detail-grid">
-        <section className="panel">
-          <h2>{t('common.details')}</h2>
-          <dl className="kv">
-            <dt>{t('assets.code')}</dt>
-            <dd>{asset.code}</dd>
-            <dt>{t('assets.forms')}</dt>
-            <dd className="badges">
-              {asset.forms.length ? asset.forms.map((f) => <FormBadge key={f} form={f} />) : <span className="muted">—</span>}
-            </dd>
-            <dt>{t('assets.decimals')}</dt>
-            <dd>{num(asset.decimals)}</dd>
-            <dt>{t('common.description')}</dt>
-            <dd className="pre">{asset.description || <span className="muted">—</span>}</dd>
-          </dl>
-          <h2>{t('assets.balance')}</h2>
-          <TotalsTable
-            head={t('filter.form')}
-            empty={t('assets.noBalance')}
-            rows={FORMS.map((f) => ({ key: f, label: <FormBadge form={f} />, asset, total: total[f] ?? 0, own: own[f] ?? 0 }))}
-            footer={{ key: 'sum', label: t('totals.sum'), asset, total: sum(total), own: sum(own) }}
-          />
-        </section>
+        <div className="detail-col">
+          <section className="panel">
+            <h2>{t('common.details')}</h2>
+            <dl className="kv">
+              <dt>{t('assets.code')}</dt>
+              <dd>{asset.code}</dd>
+              <dt>{t('assets.forms')}</dt>
+              <dd className="badges">
+                {asset.forms.length ? asset.forms.map((f) => <FormBadge key={f} form={f} />) : <span className="muted">—</span>}
+              </dd>
+              <dt>{t('assets.decimals')}</dt>
+              <dd>{num(asset.decimals)}</dd>
+              <dt>{t('common.description')}</dt>
+              <dd className="pre">{asset.description || <span className="muted">—</span>}</dd>
+            </dl>
+            <h2>{t('assets.balance')}</h2>
+            <TotalsTable
+              head={t('filter.form')}
+              empty={t('assets.noBalance')}
+              rows={FORMS.map((f) => ({ key: f, label: <FormBadge form={f} />, asset, total: total[f] ?? 0, own: own[f] ?? 0 }))}
+              footer={{ key: 'sum', label: t('totals.sum'), asset, total: sum(total), own: sum(own) }}
+            />
+          </section>
+          <RelatedTemplates kind="assets" id={id} />
+        </div>
         <div className="detail-col">
           <section className="panel">
             <h2>
@@ -203,8 +207,10 @@ export function AssetDetail({ id }: { id: string }) {
 function DeleteAsset({ asset, onClose, onDeleted }: { asset: Asset; onClose: () => void; onDeleted?: () => void }) {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
-  const u = getIndex(data).assetUsage.get(asset.id)!;
-  const used = u.accounts.length + u.txs + u.debts.length > 0;
+  const ix = getIndex(data);
+  const u = ix.assetUsage.get(asset.id)!;
+  const templates = templatesUsing(ix, 'assets', asset.id);
+  const used = u.accounts.length + u.txs + u.debts.length + templates.length > 0;
   if (used) {
     return (
       <Modal
@@ -222,6 +228,7 @@ function DeleteAsset({ asset, onClose, onDeleted }: { asset: Asset; onClose: () 
           {u.accounts.length > 0 && <li>{tn('counts.accounts', u.accounts.length)}</li>}
           {u.txs > 0 && <li>{tn('counts.transactions', u.txs)}</li>}
           {u.debts.length > 0 && <li>{tn('counts.debts', u.debts.length)}</li>}
+          {templates.length > 0 && <li>{tn('counts.templates', templates.length)}</li>}
         </ul>
         <LinkList
           empty=""
@@ -229,6 +236,7 @@ function DeleteAsset({ asset, onClose, onDeleted }: { asset: Asset; onClose: () 
             ...u.accounts.map((a) => ({ href: href.detail('accounts', a.id), label: a.name })),
             ...u.debts.map((d) => ({ href: href.detail('debts', d.id), label: d.name })),
             ...(u.txs ? [{ href: href.transactions({ asset: asset.id }), label: t('nav.transactions') }] : []),
+            ...templates.map((x) => ({ href: href.templates(x.name), label: x.name, icon: <Icon name="template" size={16} /> })),
           ]}
         />
       </Modal>

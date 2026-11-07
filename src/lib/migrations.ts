@@ -50,6 +50,8 @@ const STEPS: Record<number, Step> = {
     const order = new Map(sorted.map((a, i) => [a, i]));
     return { ...t, accounts: t.accounts.map((a) => ({ ...a, order: order.get(a) })) };
   },
+  // transaction templates: a new sheet, empty at first (created when the spreadsheet is rewritten)
+  4: (t) => ({ ...t, templates: t.templates ?? [] }),
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

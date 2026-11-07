@@ -17,6 +17,7 @@ import { SERVICE_FORMS, type FormId, type Service } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { NotFound } from './common';
+import { RelatedTemplates } from '../components/Templates';
 
 export function ServicesPage() {
   const { t, tn } = useI18n();
@@ -182,36 +183,39 @@ export function ServiceDetail({ id }: { id: string }) {
         }
       />
       <div className="detail-grid">
-        <section className="panel">
-          <h2>{t('common.details')}</h2>
-          <dl className="kv">
-            <dt>{t('services.forms')}</dt>
-            <dd className="badges">
-              {service.forms.map((f) => (
-                <FormBadge key={f} form={f} />
-              ))}
-            </dd>
-            <dt>{t('common.description')}</dt>
-            <dd className="pre">{service.description || <span className="muted">—</span>}</dd>
-          </dl>
-          <h2>{t('services.balance')}</h2>
-          <TotalsTable
-            head={t('accounts.asset')}
-            empty={t('services.noBalance')}
-            rows={data.assets.map((a) => ({
-              key: a.id,
-              label: (
-                <span className="cell-link">
-                  <AssetIcon asset={a} size={18} />
-                  {a.code}
-                </span>
-              ),
-              asset: a,
-              total: total.get(a.id) ?? 0,
-              own: own.get(a.id) ?? 0,
-            }))}
-          />
-        </section>
+        <div className="detail-col">
+          <section className="panel">
+            <h2>{t('common.details')}</h2>
+            <dl className="kv">
+              <dt>{t('services.forms')}</dt>
+              <dd className="badges">
+                {service.forms.map((f) => (
+                  <FormBadge key={f} form={f} />
+                ))}
+              </dd>
+              <dt>{t('common.description')}</dt>
+              <dd className="pre">{service.description || <span className="muted">—</span>}</dd>
+            </dl>
+            <h2>{t('services.balance')}</h2>
+            <TotalsTable
+              head={t('accounts.asset')}
+              empty={t('services.noBalance')}
+              rows={data.assets.map((a) => ({
+                key: a.id,
+                label: (
+                  <span className="cell-link">
+                    <AssetIcon asset={a} size={18} />
+                    {a.code}
+                  </span>
+                ),
+                asset: a,
+                total: total.get(a.id) ?? 0,
+                own: own.get(a.id) ?? 0,
+              }))}
+            />
+          </section>
+          <RelatedTemplates kind="services" id={id} />
+        </div>
         <section className="panel">
           <h2>
             {t('nav.accounts')} <span className="count">{accounts.length}</span>

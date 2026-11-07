@@ -117,5 +117,5 @@ export function presetData(lang: Lang): Data {
     ...stamps,
   };
 
-  return { assets, services, contacts: [self], accounts: [account], categories, transactions: [], debts: [] };
+  return { assets, services, contacts: [self], accounts: [account], categories, transactions: [], debts: [], templates: [] };
 }

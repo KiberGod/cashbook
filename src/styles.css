@@ -1748,7 +1748,8 @@ select,
   flex-direction: column;
 }
 
-.link-list a {
+.link-list a,
+.link-list-btn {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1757,11 +1758,23 @@ select,
   color: var(--text);
 }
 
-.link-list li:last-child a {
+.link-list-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.link-list li:last-child a,
+.link-list li:last-child .link-list-btn {
   border-bottom: none;
 }
 
-.link-list a:hover {
+.link-list a:hover,
+.link-list-btn:hover {
   text-decoration: none;
   color: var(--accent);
 }
@@ -4927,5 +4940,359 @@ button.cal-yearbar {
 @media (prefers-reduced-motion: reduce) {
   .copy-btn-done svg {
     animation: none;
+  }
+}
+
+/* a Picker's group heading with a picture: the contact whose accounts follow; a rule above sets the groups apart */
+.picker-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+}
+
+/* the chosen account's contact, after its name */
+.picker-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-left: 2px;
+  padding: 1px 8px 1px 2px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* a field title with a "?" after it */
+.field-label-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.infotip {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: help;
+}
+
+.infotip:hover,
+.infotip:focus-visible {
+  color: var(--accent);
+}
+
+.infotip-pop {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.4;
+  box-shadow: var(--shadow-lg, 0 6px 20px rgb(0 0 0 / 0.18));
+  pointer-events: none;
+}
+
+/* a date field on its own in a form field: as wide as the field, no flex growth down the column */
+.field > .dtf {
+  flex: none;
+  max-width: none;
+}
+
+/* a debt in a Picker, like its card: the name, then who owes whom how much */
+.debt-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.debt-option-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debt-option .debt-parties {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 0.86rem;
+}
+
+/* what this transaction adds to the debt or takes off it */
+.debt-delta {
+  margin-left: 4px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* chosen, in the closed Picker: all on one line, cut at the edge */
+.debt-option-chosen {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.debt-option-chosen .debt-parties {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* ---------- templates ---------- */
+
+.tpl-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+}
+
+.tpl-grid > * {
+  min-width: 0;
+}
+
+.rows-grid .tpl-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 14px 8px 14px 16px;
+  cursor: pointer;
+}
+
+.tpl-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tpl-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.tpl-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.tpl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tpl-parties {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 0.9rem;
+  padding-right: 8px;
+}
+
+.tpl-side-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.tpl-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tpl-card > .row-note {
+  padding-right: 8px;
+}
+
+.tpl-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding: 10px 8px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.tpl-foot > .btn {
+  flex: none;
+}
+
+.tpl-amount {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tpl-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.tpl-amount > .muted {
+  font-size: 0.86rem;
+}
+
+.link-list-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* a panel across the whole row under a two-column layout (the debt page's related templates) */
+.layout-full {
+  grid-column: 1 / -1;
+}
+
+.tpl-names {
+  list-style: none;
+  padding-left: 0;
+}
+
+.tpl-names li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.form-grid-full {
+  grid-column: 1 / -1;
+}
+
+.list-count {
+  margin: 0 0 10px;
+  font-size: 0.88rem;
+}
+
+/* a long chosen value (e.g. a direction) shrinks with an ellipsis instead of running past a narrow screen */
+.filter-group-row > .multiselect {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.filter-group-row .multiselect-btn {
+  max-width: 100%;
+}
+
+.filter-group-row .multiselect-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* a small control next to the modal's title; the close button stays at the far end */
+.modal-head-extra {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.modal-head-extra .multiselect,
+.modal-head-extra .multiselect-btn {
+  max-width: 100%;
+}
+
+.modal-head-extra .multiselect-btn {
+  height: 26px;
+  gap: 4px;
+  padding: 0 6px 0 8px;
+  border-color: transparent;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.modal-head-extra .multiselect-btn:hover,
+.modal-head-extra .multiselect-btn[aria-expanded='true'] {
+  border-color: var(--border-strong);
+}
+
+.modal-head-extra .multiselect-label {
+  font-size: inherit;
+}
+
+.modal-head-extra .multiselect-value {
+  min-width: 0;
+  max-width: 180px;
+  gap: 4px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.modal-head-extra .multiselect-value:has(> .picker-chosen:empty) {
+  display: none;
+}
+
+/* the chosen template's picture shrinks to the text */
+.modal-head-extra .multiselect-value .avatar,
+.modal-head-extra .multiselect-value svg {
+  width: 14px !important;
+  height: 14px !important;
+  font-size: 0.55rem;
+}
+
+.modal-head-extra .multiselect-btn > svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* on a phone the template choice gets its own line under the title */
+@media (max-width: 480px) {
+  .modal-head:has(.modal-head-extra) {
+    flex-wrap: wrap;
+  }
+
+  .modal-head:has(.modal-head-extra) h2 {
+    flex: 1;
+  }
+
+  .modal-head-extra {
+    order: 3;
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+
+  .modal-head-extra .multiselect-value {
+    max-width: 220px;
   }
 }

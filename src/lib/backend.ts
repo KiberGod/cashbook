@@ -8,6 +8,7 @@ import {
   InvalidStructureError,
   SCHEMA_VERSION,
   SHEETS,
+  SHEET_SINCE,
   cellsToRecord,
   fromRecord,
   headerOf,
@@ -65,6 +66,8 @@ export class SheetBackend {
   private nextRow = new Map<EntityKind, number>();
   /** set when the spreadsheet needs a full rewrite after loading (migration) */
   private needsRewrite = false;
+  /** sheets of a newer schema that an older spreadsheet does not have yet; the migration adds them */
+  private missing: EntityKind[] = [];
 
   constructor(io: SheetIO) {
     this.io = io;
@@ -121,7 +124,10 @@ export class SheetBackend {
     else if (!meta.schema || meta.schema > SCHEMA_VERSION) {
       issues.push({ sheet: SHEETS.meta, code: meta.schema ? 'newerSchema' : 'badMeta', value: String(meta.schema ?? '') });
     }
-    for (const k of ENTITY_KINDS) if (!byTitle.has(SHEETS[k])) issues.push({ sheet: SHEETS[k], code: 'missingSheet' });
+    // a sheet added by a later schema is not missing from a spreadsheet older than that
+    const added = (k: EntityKind) => !!meta.schema && meta.schema < (SHEET_SINCE[k] ?? 0);
+    this.missing = ENTITY_KINDS.filter((k) => !byTitle.has(SHEETS[k]) && added(k));
+    for (const k of ENTITY_KINDS) if (!byTitle.has(SHEETS[k]) && !added(k)) issues.push({ sheet: SHEETS[k], code: 'missingSheet' });
     const enc = meta.encryption && meta.encryption !== 'none';
     if (ok && enc && (meta.encryption !== CIPHER_NAME || meta.kdf !== KDF_NAME || !meta.salt || !meta.check || !meta.iterations)) {
       issues.push({ sheet: SHEETS.meta, code: 'badMeta', value: 'encryption' });
@@ -158,6 +164,10 @@ export class SheetBackend {
   /** Writes the result of a load that had to be migrated. Call after the data is shown. */
   async finishLoad(data: Data) {
     if (!this.needsRewrite) return;
+    if (this.missing.length) {
+      await this.io.batchUpdate(this.missing.flatMap((k) => this.addSheetRequests(k)));
+      this.missing = [];
+    }
     this.meta = { ...this.meta!, schema: SCHEMA_VERSION };
     await this.rewriteAll(data, { withMeta: true });
     this.needsRewrite = false;
@@ -280,30 +290,7 @@ export class SheetBackend {
     }
     this.meta = meta;
 
-    const requests: unknown[] = [];
-    for (const k of ALL_KEYS) {
-      const sheetId = Math.floor(Math.random() * 1e9) + 1;
-      const columns = k === 'meta' ? 2 : this.encrypted ? 1 : headerOf(k).length;
-      this.grid.set(k, { sheetId, rowCount: 1000, columnCount: Math.max(columns, 2) });
-      requests.push(
-        {
-          addSheet: {
-            properties: {
-              sheetId,
-              title: SHEETS[k],
-              gridProperties: { rowCount: 1000, columnCount: Math.max(columns, 2), frozenRowCount: 1 },
-            },
-          },
-        },
-        {
-          repeatCell: {
-            range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: columns },
-            cell: { userEnteredFormat: { textFormat: { bold: true } } },
-            fields: 'userEnteredFormat.textFormat.bold',
-          },
-        },
-      );
-    }
+    const requests: unknown[] = ALL_KEYS.flatMap((k) => this.addSheetRequests(k));
     // the default empty "Sheet1" is not needed any more
     for (const s of this.blankSheets) requests.push({ deleteSheet: { sheetId: s.sheetId } });
     await this.io.batchUpdate(requests);
@@ -315,6 +302,31 @@ export class SheetBackend {
     }
     await this.writeMeta();
     await this.rewriteAll(seed);
+  }
+
+  /** Creates one of the Cashbook sheets: a bold, frozen header row in a grid sized for its format. */
+  private addSheetRequests(k: SheetKey): unknown[] {
+    const sheetId = Math.floor(Math.random() * 1e9) + 1;
+    const columns = k === 'meta' ? 2 : this.encrypted ? 1 : headerOf(k).length;
+    this.grid.set(k, { sheetId, rowCount: 1000, columnCount: Math.max(columns, 2) });
+    return [
+      {
+        addSheet: {
+          properties: {
+            sheetId,
+            title: SHEETS[k],
+            gridProperties: { rowCount: 1000, columnCount: Math.max(columns, 2), frozenRowCount: 1 },
+          },
+        },
+      },
+      {
+        repeatCell: {
+          range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: columns },
+          cell: { userEnteredFormat: { textFormat: { bold: true } } },
+          fields: 'userEnteredFormat.textFormat.bold',
+        },
+      },
+    ];
   }
 
   // ---- writing ----

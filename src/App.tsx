@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Footer, Sidebar, SyncBanner, Toasts, TopBar } from './components/Layout';
-import { TxFormHost } from './components/TxForm';
+import { TemplateFormHost, TxFormHost } from './components/TxForm';
 import { AccountDetail, AccountsPage } from './pages/AccountsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AssetDetail, AssetsPage } from './pages/AssetsPage';
@@ -50,7 +50,7 @@ function Page({ route }: { route: Route }) {
       return <Detail key={route.id} id={route.id} />;
     }
     case 'templates':
-      return <TemplatesPage />;
+      return <TemplatesPage key={route.query.toString()} query={route.query} />;
     case 'settings':
       return <SettingsPage />;
   }
@@ -85,6 +85,7 @@ export function App() {
         <Footer />
       </div>
       <TxFormHost />
+      <TemplateFormHost />
       <Toasts />
     </div>
   );

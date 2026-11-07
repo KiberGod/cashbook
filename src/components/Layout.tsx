@@ -227,13 +227,15 @@ export function Toasts() {
   const loadedAt = useStore((s) => s.loadedAt);
   const toast = useUi((s) => s.toast);
   const first = useRef(loadedAt);
+  // the last toast stays in the UI state: one raised before this mount (e.g. before signing in again) is old news
+  const seen = useRef(toast);
   const [text, setText] = useState<string | null>(null);
   useEffect(() => {
     if (!loadedAt || loadedAt === first.current) return;
     setText(t('refreshed'));
   }, [loadedAt]);
   useEffect(() => {
-    if (toast) setText(toast.text);
+    if (toast && toast !== seen.current) setText(toast.text);
   }, [toast]);
   useEffect(() => {
     if (!text) return;

@@ -1,4 +1,4 @@
-import type { Account, Asset, Category, Contact, Data, Debt, Service, Transaction } from './types';
+import type { Account, Asset, Category, Contact, Data, Debt, Service, Template, Transaction } from './types';
 
 /**
  * Pure data operations: every function returns a new Data and never mutates.
@@ -156,12 +156,23 @@ export function moveAccount(d: Data, id: string, overId: string): Data {
   return { ...d, accounts: d.accounts.map((a) => moved.get(a.id)!) };
 }
 
-/** Deletes the account together with every transaction it takes part in. */
+/**
+ * Deletes the account together with every transaction it takes part in. Templates stay, with
+ * that side left empty (and without a fee when it was the sender).
+ */
 export function deleteAccount(d: Data, id: string): Data {
+  const t = now();
   return {
     ...d,
     accounts: d.accounts.filter((a) => a.id !== id),
-    transactions: d.transactions.filter((t) => t.fromId !== id && t.toId !== id),
+    transactions: d.transactions.filter((x) => x.fromId !== id && x.toId !== id),
+    templates: d.templates.map((x) =>
+      x.fromId === id
+        ? { ...x, fromId: '', fee: null, feeAssetId: x.assetId, updatedAt: t }
+        : x.toId === id
+          ? { ...x, toId: '', updatedAt: t }
+          : x,
+    ),
   };
 }
 
@@ -211,7 +222,7 @@ export function moveCategory(d: Data, id: string, parentId: string, index: numbe
   return changed.size ? { ...d, categories: d.categories.map((c) => changed.get(c.id) ?? c) } : d;
 }
 
-/** Deletes the category with its sub-categories; their transactions stay, without a category. */
+/** Deletes the category with its sub-categories; their transactions and templates stay, without a category. */
 export function deleteCategory(d: Data, id: string): Data {
   const gone = new Set([id, ...d.categories.filter((c) => c.parentId === id).map((c) => c.id)]);
   const t = now();
@@ -219,6 +230,7 @@ export function deleteCategory(d: Data, id: string): Data {
     ...d,
     categories: d.categories.filter((c) => !gone.has(c.id)),
     transactions: d.transactions.map((x) => (gone.has(x.categoryId) ? { ...x, categoryId: '', updatedAt: t } : x)),
+    templates: d.templates.map((x) => (gone.has(x.categoryId) ? { ...x, categoryId: '', updatedAt: t } : x)),
   };
 }
 
@@ -245,12 +257,55 @@ export function saveDebt(d: Data, f: DebtFields, id?: string) {
   return { data: { ...d, debts: list }, entity };
 }
 
-/** The debt's transactions stay, just no longer linked to it. */
+/** The debt's transactions and templates stay, just no longer linked to it. */
 export function deleteDebt(d: Data, id: string): Data {
   const t = now();
   return {
     ...d,
     debts: d.debts.filter((x) => x.id !== id),
     transactions: d.transactions.map((x) => (x.debtId === id ? { ...x, debtId: '', updatedAt: t } : x)),
+    templates: d.templates.map((x) => (x.debtId === id ? { ...x, debtId: '', updatedAt: t } : x)),
+  };
+}
+
+// ---- templates ----
+
+export type TemplateFields = Omit<Fields<Template>, 'order'>;
+
+/** A new template goes to the end of the list, an edited one keeps its place. */
+export function saveTemplate(d: Data, f: TemplateFields, id?: string) {
+  const order = id ? d.templates.find((x) => x.id === id)!.order : Math.max(-1, ...d.templates.map((x) => x.order)) + 1;
+  const { list, entity } = upsert(d.templates, { ...f, order }, id);
+  return { data: { ...d, templates: list }, entity };
+}
+
+export const templatesInOrder = (list: Template[]) => [...list].sort((a, b) => a.order - b.order);
+
+/** Moves a template to where another one is and renumbers; only templates whose place changed are rewritten. */
+export function moveTemplate(d: Data, id: string, overId: string): Data {
+  const list = templatesInOrder(d.templates);
+  const from = list.findIndex((x) => x.id === id);
+  const to = list.findIndex((x) => x.id === overId);
+  if (from < 0 || to < 0 || from === to) return d;
+  list.splice(to, 0, ...list.splice(from, 1));
+  const t = now();
+  const moved = new Map(list.map((x, i) => [x.id, x.order === i ? x : { ...x, order: i, updatedAt: t }]));
+  return { ...d, templates: d.templates.map((x) => moved.get(x.id)!) };
+}
+
+export const deleteTemplate = (d: Data, id: string): Data => ({ ...d, templates: d.templates.filter((x) => x.id !== id) });
+
+/** What a new transaction made from the template starts with (the date is now). */
+export function templatePrefill(x: Template): Partial<Transaction> {
+  return {
+    fromId: x.fromId,
+    toId: x.toId,
+    assetId: x.assetId,
+    ...(x.amount !== null ? { amount: x.amount } : {}),
+    fee: x.fee,
+    feeAssetId: x.feeAssetId,
+    categoryId: x.categoryId,
+    debtId: x.debtId,
+    description: x.description,
   };
 }

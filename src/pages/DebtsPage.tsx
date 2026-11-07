@@ -10,12 +10,13 @@ import { useI18n } from '../i18n';
 import { parseAmount } from '../lib/format';
 import { deleteDebt, saveDebt } from '../lib/ops';
 import { matchesAny } from '../lib/search';
-import { debtEffect, getIndex } from '../lib/stats';
+import { debtEffect, getIndex, templatesUsing } from '../lib/stats';
 import type { Asset, Contact, Debt, Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
+import { RelatedTemplates, TemplateNames } from '../components/Templates';
 
 type Status = 'open' | 'closed' | 'all';
 
@@ -291,6 +292,7 @@ export function DebtDetail({ id }: { id: string }) {
             </div>
           </div>
         </section>
+        <RelatedTemplates kind="debts" id={id} className="layout-full" />
       </div>
       <TxBrowser
         txs={s.txs}
@@ -312,7 +314,9 @@ export function DebtDetail({ id }: { id: string }) {
 function DeleteDebt({ debt, onClose, onDeleted }: { debt: Debt; onClose: () => void; onDeleted?: () => void }) {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
-  const n = getIndex(data).debt.get(debt.id)?.txs.length ?? 0;
+  const ix = getIndex(data);
+  const n = ix.debt.get(debt.id)?.txs.length ?? 0;
+  const templates = templatesUsing(ix, 'debts', debt.id);
   return (
     <ConfirmDialog
       title={t('debts.deleteTitle', { name: debt.name })}
@@ -322,7 +326,14 @@ function DeleteDebt({ debt, onClose, onDeleted }: { debt: Debt; onClose: () => v
         mutate((d) => deleteDebt(d, debt.id));
         onDeleted?.();
       }}
-    />
+    >
+      {templates.length > 0 && (
+        <>
+          <p className="muted">{t('debts.deleteTemplates', { n: templates.length })}</p>
+          <TemplateNames list={templates} />
+        </>
+      )}
+    </ConfirmDialog>
   );
 }
 

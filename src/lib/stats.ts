@@ -1,4 +1,4 @@
-import type { Account, Asset, Category, Contact, Data, Debt, Service, Transaction } from './types';
+import type { Account, Asset, Category, Contact, Data, Debt, Service, Template, Transaction } from './types';
 
 /**
  * Everything derived from the records: balances, turnover, debt remainders, usage
@@ -62,6 +62,9 @@ export interface Index {
   categories: Map<string, Category>;
   transactions: Map<string, Transaction>;
   debts: Map<string, Debt>;
+  templates: Map<string, Template>;
+  /** templates in the user's order */
+  templateList: Template[];
   self: Contact | undefined;
   /** all transactions, newest first */
   txSorted: Transaction[];
@@ -266,6 +269,8 @@ function build(d: Data): Index {
     categories: byId(d.categories),
     transactions: byId(d.transactions),
     debts: debtsById,
+    templates: byId(d.templates),
+    templateList: [...d.templates].sort((a, b) => a.order - b.order),
     self: d.contacts.find((c) => c.isSelf),
     txSorted,
     time,
@@ -277,6 +282,32 @@ function build(d: Data): Index {
     assetUsage,
     serviceAccounts,
   };
+}
+
+/** The entities a template can depend on. */
+export type TemplateLink = 'accounts' | 'assets' | 'categories' | 'debts' | 'services';
+
+/**
+ * Templates that use the entity, in the user's order. A root category counts its sub-categories'
+ * templates too (deleting it removes them), a service the templates of its accounts.
+ */
+export function templatesUsing(ix: Index, kind: TemplateLink, id: string): Template[] {
+  const sides = (x: Template) => [x.fromId, x.toId].filter(Boolean).map((a) => ix.accounts.get(a));
+  const cats = kind === 'categories' ? withChildren(ix, [id]) : null;
+  return ix.templateList.filter((x) => {
+    switch (kind) {
+      case 'accounts':
+        return x.fromId === id || x.toId === id;
+      case 'assets':
+        return x.assetId === id || (x.fee !== null && x.feeAssetId === id);
+      case 'categories':
+        return !!x.categoryId && cats!.has(x.categoryId);
+      case 'debts':
+        return x.debtId === id;
+      case 'services':
+        return sides(x).some((a) => a?.serviceId === id);
+    }
+  });
 }
 
 /** The category with its sub-categories (a parent filter includes its children). */

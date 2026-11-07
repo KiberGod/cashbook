@@ -14,7 +14,7 @@ import { formPalette, imagePalette, type CardPalette } from '../lib/cardPalette'
 import { money, parseAmount } from '../lib/format';
 import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder, setInitialBalances } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
-import { accountFlowOf, getIndex, round } from '../lib/stats';
+import { accountFlowOf, getIndex, round, templatesUsing } from '../lib/stats';
 import { TxBrowser } from '../components/TxBrowser';
 import { DateTimeField } from '../components/DateTimeField';
 import { ChartCard, extendedSeries, useChartColors } from '../components/charts';
@@ -24,6 +24,8 @@ import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
+import { RelatedTemplates, TemplateNames } from '../components/Templates';
+
 
 const NO_CONTACT = '__none__';
 
@@ -348,7 +350,11 @@ export function AccountDetail({ id }: { id: string }) {
       </nav>
       {pageTab === 'overview' && (
         <div className="acc-layout">
-          <AccountCardStatic a={account} />
+          {/* the card with the related templates right under it */}
+          <div className="detail-col">
+            <AccountCardStatic a={account} />
+            <RelatedTemplates kind="accounts" id={id} />
+          </div>
           <section className="panel acc-details">
             <h2>{t('common.details')}</h2>
             <div className="cells cells-3">
@@ -737,7 +743,9 @@ export function BalanceAdjustment({ account, onClose }: { account: Account; onCl
 export function DeleteAccount({ account, onClose, onDeleted }: { account: Account; onClose: () => void; onDeleted?: () => void }) {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
-  const n = getIndex(data).account.get(account.id)?.flow.tx ?? 0;
+  const ix = getIndex(data);
+  const n = ix.account.get(account.id)?.flow.tx ?? 0;
+  const templates = templatesUsing(ix, 'accounts', account.id);
   return (
     <ConfirmDialog
       title={t('accounts.deleteTitle', { name: account.name })}
@@ -748,7 +756,14 @@ export function DeleteAccount({ account, onClose, onDeleted }: { account: Accoun
         mutate((d) => deleteAccount(d, account.id));
         onDeleted?.();
       }}
-    />
+    >
+      {templates.length > 0 && (
+        <>
+          <p className="muted">{t('accounts.deleteTemplates', { n: templates.length })}</p>
+          <TemplateNames list={templates} />
+        </>
+      )}
+    </ConfirmDialog>
   );
 }
 

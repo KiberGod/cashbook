@@ -111,6 +111,29 @@ export interface Debt extends Timestamps {
   amount: number;
 }
 
+/**
+ * A prepared transaction: everything but the date, to create transactions quickly. Every field
+ * may be left empty and filled in when the transaction is made from it.
+ */
+export interface Template extends Timestamps {
+  id: string;
+  name: string;
+  fromId: string;
+  toId: string;
+  /** '' until an account is chosen */
+  assetId: string;
+  /** null = entered each time */
+  amount: number | null;
+  fee: number | null;
+  feeAssetId: string;
+  categoryId: string;
+  debtId: string;
+  /** the description the transaction gets */
+  description: string;
+  /** position in the templates list, ascending; set by drag and drop */
+  order: number;
+}
+
 export interface Data {
   assets: Asset[];
   services: Service[];
@@ -119,10 +142,11 @@ export interface Data {
   categories: Category[];
   transactions: Transaction[];
   debts: Debt[];
+  templates: Template[];
 }
 
 export type EntityKind = keyof Data;
-export const ENTITY_KINDS: EntityKind[] = ['assets', 'services', 'contacts', 'accounts', 'categories', 'transactions', 'debts'];
+export const ENTITY_KINDS: EntityKind[] = ['assets', 'services', 'contacts', 'accounts', 'categories', 'transactions', 'debts', 'templates'];
 
 export const EMPTY_DATA: Data = {
   assets: [],
@@ -132,6 +156,7 @@ export const EMPTY_DATA: Data = {
   categories: [],
   transactions: [],
   debts: [],
+  templates: [],
 };
 
 export const LIMITS = {

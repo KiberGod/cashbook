@@ -9,9 +9,13 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  /** focus the first field on opening (otherwise the dialog itself, so Escape and Tab still work) */
+  focusField?: boolean;
+  /** a small control right after the title (e.g. the template of a new transaction) */
+  headExtra?: ReactNode;
 }
 
-export function Modal({ title, onClose, children, footer, size = 'md' }: ModalProps) {
+export function Modal({ title, onClose, children, footer, size = 'md', focusField = true, headExtra }: ModalProps) {
   const { t } = useI18n();
   const panel = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -27,7 +31,7 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
     document.addEventListener('keydown', onKey);
     document.body.classList.add('no-scroll');
     // focus the first field, or the panel itself
-    const first = panel.current?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select');
+    const first = focusField ? panel.current?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select') : null;
     (first ?? panel.current)?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
@@ -41,6 +45,7 @@ export function Modal({ title, onClose, children, footer, size = 'md' }: ModalPr
       <div className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
         <div className="modal-head">
           <h2>{title}</h2>
+          {headExtra && <div className="modal-head-extra">{headExtra}</div>}
           <button type="button" className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
             <Icon name="close" />
           </button>

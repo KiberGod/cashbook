@@ -276,9 +276,6 @@ export function ContactDetail({ id }: { id: string }) {
           <h2>
             {t('nav.transactions')} <span className="count">{s.txs.length}</span>
           </h2>
-          <a className="btn btn-sm" href={href.transactions({ contact: id })}>
-            {t('common.openAll')}
-          </a>
         </div>
         <div className="toolbar">
           <SearchField value={q} onChange={setQ} placeholder={t('tx.search')} />

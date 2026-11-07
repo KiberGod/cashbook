@@ -9,7 +9,7 @@ export type Route =
   | { name: 'transactions'; query: URLSearchParams }
   | { name: 'list'; kind: ListKind }
   | { name: 'detail'; kind: ListKind; id: string }
-  | { name: 'templates' }
+  | { name: 'templates'; query: URLSearchParams }
   | { name: 'settings' }
 ;
 
@@ -27,7 +27,7 @@ export function parseHash(hash: string): Route {
     case 'transactions':
       return { name: 'transactions', query: q };
     case 'templates':
-      return { name: 'templates' };
+      return { name: 'templates', query: q };
     case 'settings':
       return { name: 'settings' };
     default:
@@ -45,11 +45,12 @@ const qs = (params: Record<string, string | undefined>) => {
 export const href = {
   dashboard: () => '#/',
   analytics: (tab = '') => `#/analytics${qs({ tab })}`,
-  /** filters: account, contact, category, asset, debt, service, form */
+  /** filters: category, asset, debt, service, form */
   transactions: (filters: Record<string, string | undefined> = {}) => `#/transactions${qs(filters)}`,
   list: (kind: ListKind) => `#/${kind}`,
   detail: (kind: ListKind, id: string) => `#/${kind}/${encodeURIComponent(id)}`,
-  templates: () => '#/templates',
+  /** q: the search to open the list with (e.g. a template's name) */
+  templates: (q?: string) => `#/templates${qs({ q })}`,
   settings: () => '#/settings',
 };
 
