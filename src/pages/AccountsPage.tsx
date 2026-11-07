@@ -2,21 +2,24 @@ import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { AssetAmounts, FORM_ICON, AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Field, FormBadge, Highlight, MultiSelect, type Option, Pagination, Picker, SearchField, Segmented, useContactOptions, usePaged } from '../components/bits';
+import { AccountIcon, AssetAmounts, FORM_ICON, Segmented, AssetIcon, Avatar, CardMenu, ContactChip, CopyButton, EmptyState, Field, FormBadge, Highlight, MultiSelect, type Option, Pagination, Picker, SearchField, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
-import { Icon } from '../icons/ui';
+import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { formPalette, imagePalette, type CardPalette } from '../lib/cardPalette';
-import { parseAmount } from '../lib/format';
-import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder } from '../lib/ops';
+import { money, parseAmount } from '../lib/format';
+import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder, setInitialBalances } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
-import { getIndex } from '../lib/stats';
+import { accountFlowOf, getIndex, round } from '../lib/stats';
 import { TxBrowser } from '../components/TxBrowser';
-import { FORMS, LIMITS, type Account, type FormId } from '../lib/types';
+import { DateTimeField } from '../components/DateTimeField';
+import { ChartCard, extendedSeries, useChartColors } from '../components/charts';
+import { BreakdownDonut, type BreakdownSlice } from '../components/BreakdownDonut';
+import { FORMS, LIMITS, type Account, type FormId, type Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
@@ -38,6 +41,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
   const [forms, setForms] = useViewState<string[]>(`${scope}.forms`, []);
   const [services, setServices] = useViewState<string[]>(`${scope}.services`, []);
   const [edit, setEdit] = useState<Account | 'new' | null>(null);
+  const [adjust, setAdjust] = useState<Account | null>(null);
   const [del, setDel] = useState<Account | null>(null);
 
   const list = useMemo(
@@ -107,7 +111,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
           <SortableContext items={paged.items.map((a) => a.id)} strategy={rectSortingStrategy} disabled={!sortable}>
             <div className="acc-grid">
               {paged.items.map((a) => (
-                <AccountCard key={a.id} a={a} q={q} sortable={sortable} onEdit={() => setEdit(a)} onDelete={() => setDel(a)} />
+                <AccountCard key={a.id} a={a} q={q} sortable={sortable} onEdit={() => setEdit(a)} onAdjust={() => setAdjust(a)} onDelete={() => setDel(a)} />
               ))}
             </div>
           </SortableContext>
@@ -115,6 +119,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
       )}
       <Pagination p={paged} />
       {edit && <AccountEditor account={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
+      {adjust && <BalanceAdjustment account={adjust} onClose={() => setAdjust(null)} />}
       {del && <DeleteAccount account={del} onClose={() => setDel(null)} />}
     </>
   );
@@ -180,7 +185,7 @@ function AccountCardFace({ a, q = '', menu, inLink }: { a: Account; q?: string; 
 const paletteStyle = (p: CardPalette) => ({ '--card-from': p.from, '--card-to': p.to }) as CSSProperties;
 
 /** An account as a bank card in the grid; drag it onto another card to change the order. */
-function AccountCard({ a, q, sortable, onEdit, onDelete }: { a: Account; q: string; sortable: boolean; onEdit: () => void; onDelete: () => void }) {
+function AccountCard({ a, q, sortable, onEdit, onAdjust, onDelete }: { a: Account; q: string; sortable: boolean; onEdit: () => void; onAdjust: () => void; onDelete: () => void }) {
   const { t } = useI18n();
   const data = useStore((s) => s.data);
   const service = a.serviceId ? getIndex(data).services.get(a.serviceId) : undefined;
@@ -203,6 +208,7 @@ function AccountCard({ a, q, sortable, onEdit, onDelete }: { a: Account; q: stri
             actions={[
               { label: t('tx.add'), icon: 'plus', onSelect: () => openTxForm({ prefill: { fromId: a.id } }) },
               { label: t('common.edit'), icon: 'edit', onSelect: onEdit },
+              { label: t('accounts.adjust'), icon: 'scale', onSelect: onAdjust },
               { label: t('common.delete'), icon: 'trash', danger: true, onSelect: onDelete },
             ]}
           />
@@ -260,6 +266,9 @@ export function AccountRow({ a, q = '', onEdit, onDelete }: { a: Account; q?: st
   );
 }
 
+const PAGE_TABS = ['overview', 'stats', 'activity'] as const;
+type PageTab = (typeof PAGE_TABS)[number];
+
 export function AccountDetail({ id }: { id: string }) {
   const i18n = useI18n();
   const { t, num } = i18n;
@@ -267,10 +276,32 @@ export function AccountDetail({ id }: { id: string }) {
   const ix = getIndex(data);
   const account = ix.accounts.get(id);
   const [edit, setEdit] = useState(false);
+  const [adjust, setAdjust] = useState(false);
   const [del, setDel] = useState(false);
-  const [tab, setTab] = useViewState<'main' | 'more'>('account.detailsTab', 'main');
+  // the page's sections: what the account is / its numbers / its transactions. Opening an account
+  // starts on the overview; the open tab is kept in the address (?tab=), so Back returns to it
+  const [pageTab, setPageTabState] = useState<PageTab>(() => {
+    const tab = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tab');
+    return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
+  });
+  const setPageTab = (tab: PageTab) => {
+    setPageTabState(tab);
+    history.replaceState(history.state, '', href.detail('accounts', id) + (tab === 'overview' ? '' : `?tab=${tab}`));
+  };
   const side = useMemo(() => new Set([id]), [id]);
   const s = ix.account.get(id);
+  // the statistics tab's period (both ends included to the minute); remembered per account
+  const [statsRange, setStatsRange] = useViewState(`account.${id}.statsRange`, { from: '', to: '' });
+  const periodTxs = useMemo(() => {
+    if (!s) return [];
+    const from = statsRange.from ? new Date(statsRange.from).getTime() : null;
+    const to = statsRange.to ? new Date(statsRange.to).getTime() + 60_000 : null;
+    return s.txs.filter((x) => {
+      const time = ix.time.get(x.id) ?? new Date(x.date).getTime();
+      return (from === null || time >= from) && (to === null || time < to);
+    });
+  }, [s, statsRange, ix]);
+  const flow = useMemo(() => accountFlowOf(id, periodTxs), [id, periodTxs]);
 
 
   if (!account || !s) return <NotFound />;
@@ -297,6 +328,10 @@ export function AccountDetail({ id }: { id: string }) {
               <Icon name="edit" size={18} />
               {t('common.edit')}
             </button>
+            <button type="button" className="btn" onClick={() => setAdjust(true)}>
+              <Icon name="scale" size={18} />
+              {t('accounts.adjust')}
+            </button>
             <button type="button" className="btn btn-danger-ghost" onClick={() => setDel(true)}>
               <Icon name="trash" size={18} />
               {t('common.delete')}
@@ -304,57 +339,23 @@ export function AccountDetail({ id }: { id: string }) {
           </>
         }
       />
-      <div className="acc-layout">
-        <AccountCardStatic a={account} />
-        <section className="panel acc-stats">
-          <h2>{t('accounts.stats')}</h2>
-          <div className="cells cells-3">
-            <div className="cell">
-              <span className="cell-label">{t('accounts.balance')}</span>
-              <AssetAmounts map={s.balances} assets={assets} keepZero column />
-            </div>
-            <div className="cell">
-              <span className="cell-label">{t('stats.transactions')}</span>
-              <span>
-                {num(s.flow.tx)} <span className="muted small">({t('stats.inOutCount', { in: num(s.flow.txIn), out: num(s.flow.txOut) })})</span>
-              </span>
-            </div>
-            <div className="cell">
-              <span className="cell-label">{t('stats.fees')}</span>
-              <AssetAmounts map={s.flow.fees} assets={data.assets} column />
-            </div>
-            <div className="cell">
-              <span className="cell-label">
-                <Icon name="arrowIn" size={14} className="flow-in" />
-                {t('stats.received')}
-              </span>
-              <AssetAmounts map={s.flow.in} assets={assets} column />
-            </div>
-            <div className="cell">
-              <span className="cell-label">
-                <Icon name="arrowOut" size={14} className="flow-out" />
-                {t('stats.sent')}
-              </span>
-              <AssetAmounts map={s.flow.out} assets={assets} column />
-            </div>
-          </div>
-        </section>
-      </div>
-      <section className="panel acc-details">
-        <div className="panel-head">
-          <h2>{t('common.details')}</h2>
-          <Segmented
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: 'main', label: t('accounts.tabMain') },
-              { value: 'more', label: t('accounts.tabMore') },
-            ]}
-          />
-        </div>
-        {tab === 'main' ? (
-          <>
+      <nav className="page-tabs" role="tablist" aria-label={account.name}>
+        {PAGE_TABS.map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={pageTab === k} className={pageTab === k ? 'active' : ''} onClick={() => setPageTab(k)}>
+            {t(`accounts.page.${k}`)}
+          </button>
+        ))}
+      </nav>
+      {pageTab === 'overview' && (
+        <div className="acc-layout">
+          <AccountCardStatic a={account} />
+          <section className="panel acc-details">
+            <h2>{t('common.details')}</h2>
             <div className="cells cells-3">
+              <div className="cell">
+                <span className="cell-label">{t('accounts.balanceNow')}</span>
+                <AssetAmounts map={s.balances} assets={assets} keepZero column />
+              </div>
               <div className="cell">
                 <span className="cell-label">{t('accounts.contact')}</span>
                 {contact ? <ContactChip contact={contact} href={href.detail('contacts', contact.id)} /> : <span className="muted">{t('tx.noContact')}</span>}
@@ -376,35 +377,360 @@ export function AccountDetail({ id }: { id: string }) {
               </div>
               <div className="cell">
                 <span className="cell-label">{t('accounts.requisite')}</span>
-                {account.requisite ? <span className="requisite">{account.requisite}</span> : <span className="muted">—</span>}
+                {account.requisite ? (
+                  <span className="requisite-copy">
+                    <span className="requisite">{account.requisite}</span>
+                    <CopyButton value={account.requisite} label={t('accounts.requisite')} copied={t('accounts.requisiteCopied')} />
+                  </span>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('accounts.createdWith')}</span>
+                <AssetAmounts map={new Map(Object.entries(account.initialBalances))} assets={assets} keepZero column />
               </div>
             </div>
             <div className="cell">
               <span className="cell-label">{t('common.description')}</span>
               <span className="pre">{account.description || <span className="muted">—</span>}</span>
             </div>
-          </>
-        ) : (
-          <div className="cells cells-3">
-            <div className="cell">
-              <span className="cell-label">{t('accounts.createdWith')}</span>
-              <AssetAmounts map={new Map(Object.entries(account.initialBalances))} assets={assets} keepZero column />
+            <div className="cells cells-3">
+              <div className="cell">
+                <span className="cell-label">{t('common.created')}</span>
+                <span>{i18n.dateTime(account.createdAt)}</span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('common.updated')}</span>
+                <span>{i18n.dateTime(account.updatedAt)}</span>
+              </div>
             </div>
-            <div className="cell">
-              <span className="cell-label">{t('common.created')}</span>
-              <span>{i18n.dateTime(account.createdAt)}</span>
-            </div>
-            <div className="cell">
-              <span className="cell-label">{t('common.updated')}</span>
-              <span>{i18n.dateTime(account.updatedAt)}</span>
-            </div>
+          </section>
+        </div>
+      )}
+      {pageTab === 'stats' && (
+        <>
+          {/* the whole tab counts over this period; empty ends = all time */}
+          <div className="stats-period acc-tab-panel">
+            {/* first: the fields stay put at the right edge when it shows up */}
+            {(statsRange.from || statsRange.to) && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setStatsRange({ from: '', to: '' })}>
+                {t('stats.allTime')}
+              </button>
+            )}
+            <span className="field-label">{t('filter.period')}</span>
+            <span className="range-input range-input-dates">
+              <DateTimeField value={statsRange.from} onChange={(v) => setStatsRange((r) => ({ ...r, from: v }))} placeholder={t('filter.min')} defaultTime="00:00" ariaLabel={`${t('filter.period')}, ${t('filter.min')}`} />
+              <span>–</span>
+              <DateTimeField value={statsRange.to} onChange={(v) => setStatsRange((r) => ({ ...r, to: v }))} placeholder={t('filter.max')} defaultTime="23:59" ariaLabel={`${t('filter.period')}, ${t('filter.max')}`} />
+            </span>
           </div>
-        )}
-      </section>
-      <TxBrowser txs={s.txs} side={side} stateKey={`account.${id}`} prefKey="accountTx" />
+          <section className="panel acc-stats">
+            <h2 className="panel-title-badge">
+              {t('accounts.turnover')}
+              <PeriodBadge range={statsRange} />
+            </h2>
+            <div className="cells">
+              <div className="cell">
+                <span className="cell-label">
+                  <Icon name="arrowIn" size={14} className="flow-in" />
+                  {t('stats.received')}
+                </span>
+                <AssetAmounts map={flow.in} assets={assets} column />
+              </div>
+              <div className="cell">
+                <span className="cell-label">
+                  <Icon name="arrowOut" size={14} className="flow-out" />
+                  {t('stats.sent')}
+                </span>
+                <AssetAmounts map={flow.out} assets={assets} column />
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('stats.transactions')}</span>
+                <span className="tx-split" title={t('stats.inOutCount', { in: num(flow.txIn), out: num(flow.txOut) })}>
+                  {num(flow.tx)}
+                  <span className="muted">
+                    (<Icon name="arrowIn" size={13} className="flow-in" />
+                    {num(flow.txIn)}
+                    <Icon name="arrowOut" size={13} className="flow-out" />
+                    {num(flow.txOut)})
+                  </span>
+                </span>
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('accounts.feesSpent')}</span>
+                <AssetAmounts map={flow.fees} assets={data.assets} column />
+              </div>
+            </div>
+          </section>
+          <FlowBreakdown account={account} dim="contacts" txs={periodTxs} range={statsRange} />
+          <FlowBreakdown account={account} dim="accounts" txs={periodTxs} range={statsRange} />
+          <FlowBreakdown account={account} dim="categories" txs={periodTxs} range={statsRange} />
+        </>
+      )}
+      {pageTab === 'activity' && (
+        <div className="acc-tab-panel">
+          <TxBrowser txs={s.txs} side={side} stateKey={`account.${id}`} prefKey="accountTx" />
+        </div>
+      )}
       {edit && <AccountEditor account={account} onClose={() => setEdit(false)} />}
+      {adjust && <BalanceAdjustment account={account} onClose={() => setAdjust(false)} />}
       {del && <DeleteAccount account={account} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('accounts'))} />}
     </>
+  );
+}
+
+type Dim = 'contacts' | 'accounts' | 'categories';
+const DIM_ICON: Record<Dim, UiIconName> = { contacts: 'users', accounts: 'wallet', categories: 'tag' };
+
+/** A link chip for an account or a category in a legend (the contact chip's look). */
+function EntityChip({ href: to, icon, name }: { href: string; icon: ReactNode; name: string }) {
+  return (
+    <a className="contact-chip contact-chip-link" href={to}>
+      {icon}
+      <span className="contact-chip-name">{name}</span>
+    </a>
+  );
+}
+
+/**
+ * An account's received and sent money split by a grouping - the other side's contact, the
+ * other side's account, or the category - one ring each. Each ring can show amounts or counts,
+ * and an account holding several assets gets an asset choice per ring; one group keeps one
+ * colour in both rings.
+ */
+type StatsRange = { from: string; to: string };
+
+/** The exact period the statistics count over ("1 окт. 2026 г., 00:00 – 31 окт. …", "с …", "по …", "За всё время"). */
+function PeriodBadge({ range }: { range: StatsRange }) {
+  const { t, dateTime } = useI18n();
+  const text =
+    range.from && range.to
+      ? `${dateTime(range.from)} – ${dateTime(range.to)}`
+      : range.from
+        ? t('stats.since', { date: dateTime(range.from) })
+        : range.to
+          ? t('stats.until', { date: dateTime(range.to) })
+          : t('stats.allTime');
+  return (
+    <span className="chart-dim period-badge">
+      <Icon name="calendar" size={13} />
+      {text}
+    </span>
+  );
+}
+
+function FlowBreakdown({ account, dim, txs, range }: { account: Account; dim: Dim; txs: Transaction[]; /** the period `txs` were taken from */ range: StatsRange }) {
+  const { t } = useI18n();
+  const period = !!(range.from || range.to);
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const colors = useChartColors();
+  // colours are ranked on all the account's transactions, so a period change doesn't repaint them
+  const allTxs = ix.account.get(account.id)!.txs;
+  const assets = account.assetIds.map((x) => ix.assets.get(x)).filter((x) => !!x);
+  const key = `account.${account.id}.${dim}`;
+  const [inAsset, setInAsset] = useViewState(`${key}.inAsset`, account.assetIds[0]);
+  const [outAsset, setOutAsset] = useViewState(`${key}.outAsset`, account.assetIds[0]);
+  const [inMeasure, setInMeasure] = useViewState<'sum' | 'count'>(`${key}.inMeasure`, 'sum');
+  const [outMeasure, setOutMeasure] = useViewState<'sum' | 'count'>(`${key}.outMeasure`, 'sum');
+
+  // the group of a transaction, seen from this account's side
+  const groupOf = (x: Transaction): string => {
+    if (dim === 'categories') return x.categoryId || '__nocategory';
+    const otherId = x.toId === account.id ? x.fromId : x.toId;
+    const other = otherId ? ix.accounts.get(otherId) : undefined;
+    if (!other) return '__external';
+    return dim === 'accounts' ? other.id : other.contactId || '__nocontact';
+  };
+  const describe = (k: string): Pick<BreakdownSlice, 'label' | 'icon' | 'chip'> => {
+    if (k === '__external') return { label: t('tx.external') };
+    if (k === '__nocontact') return { label: t('tx.noContact') };
+    if (k === '__nocategory') return { label: t('tx.noCategory') };
+    if (dim === 'contacts') {
+      const c = ix.contacts.get(k);
+      if (!c) return { label: '?' };
+      return { label: c.name, icon: <Avatar image={c.image} name={c.name} size={20} />, chip: <ContactChip contact={c} href={href.detail('contacts', c.id)} /> };
+    }
+    if (dim === 'accounts') {
+      const a = ix.accounts.get(k);
+      if (!a) return { label: '?' };
+      const svc = a.serviceId ? ix.services.get(a.serviceId) : undefined;
+      return { label: a.name, icon: <AccountIcon account={a} service={svc} size={20} />, chip: <EntityChip href={href.detail('accounts', a.id)} icon={<AccountIcon account={a} service={svc} size={18} />} name={a.name} /> };
+    }
+    const c = ix.categories.get(k);
+    if (!c) return { label: '?' };
+    const parent = c.parentId ? ix.categories.get(c.parentId) : undefined;
+    const name = parent ? `${parent.name} / ${c.name}` : c.name;
+    const pic = c.image || parent?.image || '';
+    return { label: name, icon: <Avatar image={pic} name={c.name} size={20} fallback="tag" />, chip: <EntityChip href={href.detail('categories', c.id)} icon={<Avatar image={pic} name={c.name} size={18} fallback="tag" />} name={name} /> };
+  };
+  const slices = (dir: 'in' | 'out', assetId: string): BreakdownSlice[] => {
+    const sums = new Map<string, { value: number; count: number }>();
+    for (const x of txs) {
+      if (x.assetId !== assetId) continue;
+      if (dir === 'in' ? x.toId !== account.id : x.fromId !== account.id) continue;
+      const k = groupOf(x);
+      const sum = sums.get(k) ?? { value: 0, count: 0 };
+      sums.set(k, { value: sum.value + x.amount, count: sum.count + 1 });
+    }
+    return [...sums].map(([k, { value, count }]) => ({ key: k, value, count, ...describe(k) }));
+  };
+  const received = slices('in', inAsset);
+  const sent = slices('out', outAsset);
+
+  // a colour per group, the same in both rings whatever asset each shows: groups ranked by how many
+  // transactions they had with the account, in every asset and both directions
+  const rank = useMemo(() => {
+    const n = new Map<string, { count: number; amount: number }>();
+    for (const x of allTxs) {
+      const g = n.get(groupOf(x)) ?? { count: 0, amount: 0 };
+      n.set(groupOf(x), { count: g.count + 1, amount: g.amount + x.amount });
+    }
+    // ties (as many transactions) go by amount, so the bigger sectors take the stronger colours
+    return [...n].sort((a, b) => b[1].count - a[1].count || b[1].amount - a[1].amount || a[0].localeCompare(b[0])).map(([k]) => k);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTxs, account.id, ix, dim]);
+  const series = extendedSeries(colors);
+  const colorOf = (k: string) => series[Math.max(0, rank.indexOf(k)) % series.length];
+
+  // amount / count: in the card's top right corner
+  const measureSwitch = (measure: 'sum' | 'count', setMeasure: (v: 'sum' | 'count') => void) => (
+    <Segmented<'sum' | 'count'>
+      value={measure}
+      onChange={setMeasure}
+      options={[
+        { value: 'sum', label: t('chart.measureSum') },
+        { value: 'count', label: t('chart.measureCount') },
+      ]}
+    />
+  );
+  const title = (icon: 'arrowIn' | 'arrowOut', text: string) => (
+    <span className="chart-title-icon">
+      <Icon name={icon} size={16} className={icon === 'arrowIn' ? 'flow-in' : 'flow-out'} />
+      {text}
+    </span>
+  );
+  // a row of its own under the title (what it groups by; the asset when the account holds several),
+  // so the rings of neighbouring cards line up
+  const toolbar = (asset: string, setAsset: (v: string) => void) => (
+    <div className="chart-toolbar">
+      <span className="chart-badges">
+        <span className="chart-dim">
+          <Icon name={DIM_ICON[dim]} size={13} />
+          {t(`chart.dim.${dim}`)}
+        </span>
+        <PeriodBadge range={range} />
+      </span>
+      {assets.length > 1 && (
+        <Picker label={t('filter.asset')} value={asset} onChange={setAsset} options={assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={18} /> }))} />
+      )}
+    </div>
+  );
+
+  return (
+    <div className="acc-flow">
+      <ChartCard title={title('arrowIn', t('accounts.receivedFrom'))} actions={measureSwitch(inMeasure, setInMeasure)}>
+        {toolbar(inAsset, setInAsset)}
+        <BreakdownDonut slices={received} asset={ix.assets.get(inAsset)} colorOf={colorOf} measure={inMeasure} empty={period ? t('accounts.noReceivedPeriod') : t('accounts.noReceived')} ariaLabel={`${t('accounts.receivedFrom')}: ${t(`chart.dim.${dim}`)}`} />
+      </ChartCard>
+      <ChartCard title={title('arrowOut', t('accounts.sentTo'))} actions={measureSwitch(outMeasure, setOutMeasure)}>
+        {toolbar(outAsset, setOutAsset)}
+        <BreakdownDonut slices={sent} asset={ix.assets.get(outAsset)} colorOf={colorOf} measure={outMeasure} empty={period ? t('accounts.noSentPeriod') : t('accounts.noSent')} ariaLabel={`${t('accounts.sentTo')}: ${t(`chart.dim.${dim}`)}`} />
+      </ChartCard>
+    </div>
+  );
+}
+
+/**
+ * Balance adjustment: the balances the account really holds now are typed in, and its starting
+ * balances shift so the computed balances become exactly these; the transactions stay.
+ */
+export function BalanceAdjustment({ account, onClose }: { account: Account; onClose: () => void }) {
+  const i18n = useI18n();
+  const { t } = i18n;
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const balances = ix.account.get(account.id)?.balances;
+  const current = (x: string) => balances?.get(x) ?? 0;
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(account.assetIds.map((x) => [x, String(current(x))])));
+  const [tried, setTried] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const parsed = Object.fromEntries(account.assetIds.map((x) => [x, values[x]?.trim() ? parseAmount(values[x]) : 0]));
+  const errors = Object.fromEntries(account.assetIds.map((x) => [x, parsed[x] === null ? t('form.badNumber') : null]));
+  const invalid = Object.values(errors).some(Boolean);
+  const diff = (x: string) => (parsed[x] === null ? 0 : round(parsed[x]! - current(x)));
+  const changed = account.assetIds.some((x) => diff(x) !== 0);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setTried(true);
+    if (invalid) return;
+    setConfirm(true);
+  };
+  // only once confirmed: the old balances are gone after this
+  const save = () => {
+    const initial = Object.fromEntries(account.assetIds.map((x) => [x, round((account.initialBalances[x] ?? 0) + diff(x))]));
+    mutate((d) => setInitialBalances(d, account.id, initial));
+    onClose();
+  };
+
+  return (
+    <Modal title={t('accounts.adjustTitle', { name: account.name })} onClose={onClose} footer={<FormFooter onCancel={onClose} disabled={!changed} />}>
+      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+        <div className="warn-box">
+          <Icon name="alert" />
+          <div>
+            <strong>{t('accounts.adjustWarnTitle')}</strong>
+            <p>{t('accounts.adjustWarnText')}</p>
+          </div>
+        </div>
+        {account.assetIds.map((x) => {
+          const asset = ix.assets.get(x);
+          const d = diff(x);
+          return (
+            <div key={x} className="initial-row">
+              <Field label={t('accounts.newBalanceFor', { code: asset?.code ?? '' })} error={tried ? errors[x] : null}>
+                <input type="text" inputMode="decimal" value={values[x] ?? ''} onChange={(e) => setValues({ ...values, [x]: e.target.value })} placeholder="0" />
+              </Field>
+              {/* the balance now, and by how much the adjustment moves it */}
+              <div className="initial-preview">
+                <span className="cell-label">{t('accounts.balanceNow')}</span>
+                <span className="initial-preview-values">
+                  {money(i18n, current(x), asset)}
+                  {d !== 0 && <span className={`money ${d > 0 ? 'pos' : 'neg'}`}>({money(i18n, d, asset, { sign: true })})</span>}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </form>
+      {confirm && (
+        <ConfirmDialog
+          title={t('accounts.adjustConfirmTitle')}
+          text={t('accounts.adjustConfirmText', { name: account.name })}
+          confirmLabel={t('accounts.adjustConfirm')}
+          onConfirm={save}
+          onClose={() => setConfirm(false)}
+        >
+          <ul className="adjust-list">
+            {account.assetIds
+              .filter((x) => diff(x) !== 0)
+              .map((x) => {
+                const asset = ix.assets.get(x);
+                return (
+                  <li key={x}>
+                    <AssetIcon asset={asset} size={18} />
+                    <span className="muted">{money(i18n, current(x), asset)}</span>
+                    <Icon name="chevronRight" size={14} className="muted" />
+                    <strong>{money(i18n, parsed[x]!, asset)}</strong>
+                  </li>
+                );
+              })}
+          </ul>
+        </ConfirmDialog>
+      )}
+    </Modal>
   );
 }
 

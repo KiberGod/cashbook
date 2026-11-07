@@ -7,6 +7,7 @@ import { entries, money } from '../lib/format';
 import { byName, matchRanges, matchesAny } from '../lib/search';
 import type { AssetMap } from '../lib/stats';
 import { readPref, writePref } from '../lib/storage';
+import { showToast } from '../store/ui';
 import { useViewState } from './viewState';
 import type { Account, Asset, Contact, FormId, Service } from '../lib/types';
 
@@ -78,7 +79,9 @@ export function ContactChip({
   const inner = (
     <>
       <Avatar image={contact.image} name={contact.name} size={18} />
-      <Highlight text={contact.name} query={query} />
+      <span className="contact-chip-name">
+        <Highlight text={contact.name} query={query} />
+      </span>
     </>
   );
   if (href && inLink) {
@@ -171,6 +174,31 @@ export interface MenuAction {
   onSelect: () => void;
   danger?: boolean;
   disabled?: boolean;
+}
+
+/** A small button that copies `value`: its icon turns into a tick for a moment and a toast says so. */
+export function CopyButton({ value, label, copied }: { value: string; /** what is copied, for screen readers */ label: string; /** the toast */ copied: string }) {
+  const { t } = useI18n();
+  const [done, setDone] = useState(false);
+  const timer = useRef<number>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      showToast(t('common.copyFailed'));
+      return;
+    }
+    showToast(copied);
+    setDone(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setDone(false), 1500);
+  };
+  return (
+    <button type="button" className={`copy-btn ${done ? 'copy-btn-done' : ''}`} onClick={() => void copy()} aria-label={`${t('common.copy')}: ${label}`} title={t('common.copy')}>
+      <Icon key={done ? 'done' : 'copy'} name={done ? 'check' : 'copy'} size={14} />
+    </button>
+  );
 }
 
 export function CardMenu({ actions }: { actions: MenuAction[] }) {

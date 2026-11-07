@@ -2571,11 +2571,21 @@ select,
   align-items: stretch;
 }
 
+/* title on the left, controls pinned to the top right corner (a long title wraps beside them) */
 .chart-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 8px;
+}
+
+.chart-card-head > h2 {
+  margin: 0;
+  padding-top: 6px;
+}
+
+.chart-card-head > :last-child:not(h2) {
+  justify-self: end;
 }
 
 .chart-empty {
@@ -4062,7 +4072,7 @@ select,
   display: grid;
   grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 16px;
-  align-items: stretch; /* the card as tall as the statistics */
+  align-items: start;
   margin: 12px 0;
 }
 
@@ -4464,4 +4474,458 @@ button.cal-yearbar {
 
 .dtf-time-col {
   position: relative; /* the chosen value is scrolled to by its offset in here */
+}
+
+/* page-level tabs under the title: an underlined row */
+.page-tabs {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  /* the bottom rule is drawn inside, so the active underline doesn't stick out and cause scrolling */
+  box-shadow: inset 0 -1px 0 var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.page-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.page-tabs button {
+  position: relative;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.page-tabs button:hover {
+  color: var(--text);
+}
+
+.page-tabs button.active {
+  color: var(--accent);
+}
+
+.page-tabs button.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.acc-tab-panel {
+  margin-top: 12px;
+}
+
+/* ---------- account statistics: money by contact ---------- */
+
+.acc-flow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@media (max-width: 860px) {
+  .acc-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.chart-title-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cdonut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.cdonut-chart {
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.cdonut-chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.cdonut-sector {
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+}
+
+.cdonut-center {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  text-align: center;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.cdonut-line {
+  pointer-events: none;
+}
+
+/* the hover callout at the end of the line: who, and the share under it */
+.cdonut-callout {
+  position: absolute;
+  transform: translateY(-50%);
+  padding: 2px 6px;
+  border-radius: 8px;
+  /* readable where it overlaps the ring */
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  pointer-events: none;
+}
+
+.cdonut-callout.left {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cdonut-callout.right {
+  align-items: flex-start;
+}
+
+.cdonut-callout-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+/* the name stays on one line; only when even the whole card is too narrow it ends with "…" */
+.cdonut-callout-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cdonut-center strong {
+  white-space: nowrap;
+}
+
+.cdonut-center.small {
+  font-size: 0.76rem;
+}
+
+.cdonut-callout-pct {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.cdonut-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+}
+
+.cdonut-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 8px;
+}
+
+.cdonut-legend li > :nth-child(2) {
+  justify-self: start;
+  min-width: 0;
+}
+
+.cdonut-legend li.active {
+  background: var(--surface-2);
+}
+
+.cdonut-legend-pct {
+  font-variant-numeric: tabular-nums;
+}
+
+.cdonut-legend strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the chip is a flex box, so the "…" for a long name has to come from the name itself */
+.contact-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-card-head .segmented button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 0.84rem;
+}
+
+.cdonut-count {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
+}
+
+.cdonut-count strong {
+  font-size: 1.15em;
+}
+
+.cdonut-count .muted {
+  font-size: 0.85em;
+}
+
+/* what a chart groups by, next to its title: "Контакты", "Счета", "Категории" */
+.chart-dim {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* the arrow stays beside a title that wraps on a narrow card */
+.chart-title-icon {
+  align-items: flex-start;
+}
+
+.chart-title-icon > svg {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 0.2em;
+}
+
+.chart-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* "10 (↙2 ↗8)": a count with its in / out split */
+.tx-split,
+.tx-split > .muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tx-split > .muted {
+  gap: 2px;
+  font-size: 0.86rem;
+}
+
+.tx-split > .muted svg:nth-of-type(2) {
+  margin-left: 4px;
+}
+
+/* the statistics tab's period: a slim bar above the numbers */
+.stats-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.stats-period .field-label {
+  font-size: 0.86rem;
+}
+
+.stats-period .dtf {
+  flex: none;
+  width: 230px;
+}
+
+@media (max-width: 480px) {
+  /* the fields take whole rows: the label goes back to the left, the reset under them */
+  .stats-period {
+    justify-content: flex-start;
+  }
+
+  .stats-period .dtf {
+    width: 100%;
+  }
+
+  .stats-period > .btn {
+    order: 1;
+  }
+}
+
+/* a panel title with a badge beside it ("Оборот активов" + its period) */
+.panel-title-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+/* a chart's badges: what it groups by and over which period */
+.chart-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.period-badge {
+  white-space: normal;
+}
+
+/* the balance adjustment dialog: a new balance per asset, beside the current one and the change */
+.initial-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px 16px;
+  align-items: start;
+}
+
+.initial-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.initial-preview .cell-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.initial-preview-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-height: 40px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+  .initial-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .initial-preview-values {
+    min-height: 0;
+  }
+}
+
+/* what the adjustment changes, asset by asset: "24 150 ₴ › 20 000 ₴" */
+.adjust-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  list-style: none;
+}
+
+.adjust-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* a requisite with its copy button right after it (after its last line when it wraps) */
+.requisite-copy .copy-btn {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.copy-btn {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.copy-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.copy-btn-done,
+.copy-btn-done:hover {
+  background: color-mix(in srgb, var(--pos) 14%, transparent);
+  color: var(--pos);
+}
+
+/* the tick pops in */
+.copy-btn-done svg {
+  animation: copy-pop 0.25s ease-out;
+}
+
+@keyframes copy-pop {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .copy-btn-done svg {
+    animation: none;
+  }
 }

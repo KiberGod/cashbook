@@ -43,6 +43,12 @@ const PATHS = {
   ),
   close: <path d="M18 6 6 18M6 6l12 12" />,
   check: <path d="M5 12.5 10 17 19 7" />,
+  copy: (
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" />
+    </>
+  ),
   type: <path d="M4 7V4h16v3M9 20h6M12 4v16" />,
   image: (
     <>
@@ -122,6 +128,14 @@ const PATHS = {
     <>
       <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" />
       <path d="M8 8h.01" strokeWidth="3" />
+    </>
+  ),
+  scale: (
+    <>
+      <path d="M12 3v18M7 21h10" />
+      <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+      <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+      <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
     </>
   ),
   coins: (

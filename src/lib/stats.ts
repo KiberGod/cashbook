@@ -297,6 +297,24 @@ export function categoryTxTotal(ix: Index, id: string): number {
 }
 
 /** Own accounts first, then by contact and name - for account pickers. */
+/** An account's received / sent money, fees and counts over the given transactions (e.g. one period). */
+export function accountFlowOf(accountId: string, txs: Transaction[]) {
+  const f = { in: new Map() as AssetMap, out: new Map() as AssetMap, fees: new Map() as AssetMap, txIn: 0, txOut: 0, tx: 0 };
+  for (const t of txs) {
+    if (t.fromId === accountId) {
+      add(f.out, t.assetId, t.amount);
+      if (t.fee) add(f.fees, t.feeAssetId, t.fee);
+      f.txOut++;
+    }
+    if (t.toId === accountId) {
+      add(f.in, t.assetId, t.amount);
+      f.txIn++;
+    }
+    if (t.fromId === accountId || t.toId === accountId) f.tx++;
+  }
+  return f;
+}
+
 export function sortAccountsForPicker(ix: Index, list: Account[], locale: string): Account[] {
   const coll = new Intl.Collator(locale, { sensitivity: 'base', numeric: true });
   const selfId = ix.self?.id;

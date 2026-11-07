@@ -128,6 +128,20 @@ export function saveAccount(d: Data, f: AccountFields, id?: string) {
   return { data: { ...d, accounts: list }, entity };
 }
 
+/**
+ * Sets an account's starting balances (its own assets only). The current balances move by the
+ * same difference; the transactions stay as they are.
+ */
+export function setInitialBalances(d: Data, id: string, balances: Record<string, number>): Data {
+  const t = now();
+  return {
+    ...d,
+    accounts: d.accounts.map((a) =>
+      a.id === id ? { ...a, initialBalances: Object.fromEntries(a.assetIds.map((x) => [x, balances[x] ?? a.initialBalances[x] ?? 0])), updatedAt: t } : a,
+    ),
+  };
+}
+
 export const accountsInOrder = (list: Account[]) => [...list].sort((a, b) => a.order - b.order);
 
 /** Moves an account to where another one is and renumbers; only accounts whose place changed are rewritten. */
