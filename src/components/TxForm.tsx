@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import { amountInput, money, parseAmount, toLocalInput } from '../lib/format';
 import { categoryTree, deleteTemplate, saveTemplate, saveTransaction } from '../lib/ops';
 import { debtEffect, getIndex, sortAccountsForPicker, type Index } from '../lib/stats';
-import { LIMITS, type Account, type Category, type Debt, type Template, type Transaction } from '../lib/types';
+import { LIMITS, type Account, type Asset, type Category, type Debt, type Template, type Transaction } from '../lib/types';
 import { mutate, useStore } from '../store/store';
 import { closeTemplateForm, closeTxForm, showToast, useUi } from '../store/ui';
 import { AccountIcon, AssetIcon, AutoTextarea, Avatar, ContactChip, Field, InfoTip, Money, Picker, type Option } from './bits';
@@ -12,6 +12,40 @@ import { NameField, useTextRules } from './forms';
 import { Icon } from '../icons/ui';
 import { ConfirmDialog, Modal } from './Modal';
 import { DeleteTx } from './TxList';
+
+/**
+ * The asset at the end of an amount field: a small picker with the assets' pictures when there is
+ * a choice (crypto accounts), otherwise just the one asset's picture and code.
+ */
+function AssetChoice({ assets, value, onChange, label, disabled = false }: { assets: Asset[]; value: Asset | undefined; onChange: (id: string) => void; label: string; disabled?: boolean }) {
+  if (assets.length < 2) {
+    return (
+      <span className="amount-asset" aria-label={label}>
+        {value ? (
+          <>
+            <AssetIcon asset={value} size={18} />
+            {value.code}
+          </>
+        ) : (
+          '—'
+        )}
+      </span>
+    );
+  }
+  return (
+    <span className="amount-asset-pick">
+      <Picker
+        value={value?.id ?? ''}
+        onChange={onChange}
+        options={assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={18} /> }))}
+        ariaLabel={label}
+        disabled={disabled}
+        searchable={false}
+        popWidth={150}
+      />
+    </span>
+  );
+}
 
 /** Renders the global transaction editor when it is open. */
 export function TxFormHost() {
@@ -393,20 +427,10 @@ function TxForm({
             </button>
           </div>
           <AccountSelect ix={ix} value={toId} onChange={setToId} other={from} onlyAsset={debtAsset} label={t('tx.to')} error={err('accounts')} />
-          <Field label={t('tx.amount')} error={err('amount')}>
+          <Field label={t('tx.amount')} error={err('amount')} group>
             <span className="amount-input">
               <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={asTemplate ? t('templates.amountLater') : '0'} />
-              {assetOptions.length > 1 ? (
-                <select className="select" value={asset?.id ?? ''} onChange={(e) => setAssetId(e.target.value)} aria-label={t('tx.asset')}>
-                  {assetOptions.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="amount-asset">{asset?.code ?? '—'}</span>
-              )}
+              <AssetChoice assets={assetOptions} value={asset} onChange={setAssetId} label={t('tx.asset')} />
             </span>
           </Field>
           <span className="swap-spacer" />
@@ -425,17 +449,7 @@ function TxForm({
           >
             <span className="amount-input">
               <input type="text" inputMode="decimal" value={fromId ? fee : ''} onChange={(e) => setFee(e.target.value)} placeholder="0" disabled={!fromId} aria-label={t('tx.fee')} />
-              {feeOptions.length > 1 ? (
-                <select className="select" value={feeAsset?.id ?? ''} onChange={(e) => setFeeAssetId(e.target.value)} disabled={!fromId} aria-label={t('tx.feeAsset')}>
-                  {feeOptions.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.code}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="amount-asset">{feeAsset?.code ?? '—'}</span>
-              )}
+              <AssetChoice assets={feeOptions} value={feeAsset} onChange={setFeeAssetId} label={t('tx.feeAsset')} disabled={!fromId} />
             </span>
           </Field>
           {/* a template has no date: the category takes the whole row */}

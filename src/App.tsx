@@ -12,6 +12,7 @@ import { AuthScreen, ConnectScreen, ErrorScreen, LoadingScreen, SetupScreen, Unl
 import { ServiceDetail, ServicesPage } from './pages/ServicesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TemplatesPage } from './pages/TemplatesPage';
+import { TransactionDetail } from './pages/TransactionDetail';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { parseHash, useHash, type Route } from './router';
 import { useStore } from './store/store';
@@ -41,6 +42,8 @@ function Page({ route }: { route: Route }) {
       return <AnalyticsPage tab={route.tab} />;
     case 'transactions':
       return <TransactionsPage query={route.query} />;
+    case 'transaction':
+      return <TransactionDetail key={route.id} id={route.id} />;
     case 'list': {
       const List = LISTS[route.kind];
       return <List />;

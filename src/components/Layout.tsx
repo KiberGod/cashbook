@@ -61,7 +61,7 @@ const NAV: NavItem[][] = [
   [
     { to: href.list('contacts'), icon: 'users', label: 'nav.contacts', active: (r) => 'kind' in r && r.kind === 'contacts' },
     { to: href.list('accounts'), icon: 'wallet', label: 'nav.accounts', active: (r) => 'kind' in r && r.kind === 'accounts' },
-    { to: href.transactions(), icon: 'swap', label: 'nav.transactions', active: (r) => r.name === 'transactions' },
+    { to: href.transactions(), icon: 'swap', label: 'nav.transactions', active: (r) => r.name === 'transactions' || r.name === 'transaction' },
     { to: href.list('debts'), icon: 'handshake', label: 'nav.debts', active: (r) => 'kind' in r && r.kind === 'debts' },
   ],
   [

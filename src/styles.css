@@ -955,8 +955,10 @@ select,
 }
 
 .amount-asset {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 64px;
   padding: 0 12px;
   border: 1px solid var(--border-strong);
@@ -5295,4 +5297,158 @@ button.cal-yearbar {
   .modal-head-extra .multiselect-value {
     max-width: 220px;
   }
+}
+
+/* ---------- transaction page ---------- */
+
+.txd-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.txd-dir.dir-in {
+  color: var(--pos);
+}
+
+.txd-dir.dir-out {
+  color: var(--neg);
+}
+
+.txd-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* sender -> recipient: contacts over accounts, two equal columns and one arrow for both rows */
+.txd-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas:
+    'from-party arrow to-party'
+    'from-account arrow to-account';
+  align-items: start;
+  gap: 14px 12px;
+}
+
+.txd-from-party { grid-area: from-party; }
+.txd-from-account { grid-area: from-account; }
+.txd-to-party { grid-area: to-party; }
+.txd-to-account { grid-area: to-account; }
+
+.txd-route .cell {
+  align-items: stretch;
+}
+
+.txd-route .cell > .contact-chip,
+.txd-route .cell > .chip,
+.txd-route .cell > .muted {
+  align-self: flex-start;
+}
+
+.txd-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+a.txd-account:hover {
+  text-decoration: none;
+  border-color: var(--border-strong);
+}
+
+.txd-account-none {
+  min-height: 58px;
+}
+
+.txd-account-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.txd-account-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.txd-account-note {
+  font-size: 0.84rem;
+}
+
+.txd-arrow {
+  grid-area: arrow;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+@media (max-width: 560px) {
+  .txd-route {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'from-party' 'from-account' 'arrow' 'to-party' 'to-account';
+  }
+
+  .txd-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
+  }
+}
+
+.txd-layout {
+  align-items: start;
+}
+
+/* a line across the whole panel, padding included */
+.panel-divider {
+  align-self: stretch;
+  margin: 2px -18px;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.txd-meta {
+  width: 100%;
+}
+
+.txd-effect {
+  font-size: 0.84rem;
+}
+
+/* the asset picker glued to the end of an amount field */
+.amount-asset-pick {
+  flex-shrink: 0;
+  display: flex;
+}
+
+.amount-asset-pick .picker {
+  display: flex;
+}
+
+.amount-asset-pick .picker-btn {
+  width: auto;
+  min-width: 96px;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-left: none !important;
+  background-color: var(--surface-2);
+  font-weight: 600;
 }
