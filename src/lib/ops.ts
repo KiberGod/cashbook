@@ -106,25 +106,40 @@ export function deleteContact(d: Data, id: string): Data {
 
 // ---- accounts ----
 
-export type AccountFields = Fields<Account>;
+export type AccountFields = Omit<Fields<Account>, 'order'>;
 
 /**
  * On update the form never changes and assets can only be added (crypto). A newly added
  * asset may get its starting balance; existing starting balances stay as they were.
  */
 export function saveAccount(d: Data, f: AccountFields, id?: string) {
-  let fields = f;
+  // a new account goes to the end of the list, an edited one keeps its place
+  let fields: Fields<Account> = { ...f, order: id ? d.accounts.find((a) => a.id === id)!.order : Math.max(-1, ...d.accounts.map((a) => a.order)) + 1 };
   if (id) {
     const old = d.accounts.find((a) => a.id === id)!;
     const added = f.assetIds.filter((x) => !old.assetIds.includes(x));
     const assetIds = old.form === 'crypto' ? [...old.assetIds, ...added] : old.assetIds;
     const initialBalances = { ...old.initialBalances };
     if (old.form === 'crypto') for (const x of added) initialBalances[x] = f.initialBalances[x] ?? 0;
-    fields = { ...f, form: old.form, assetIds, initialBalances };
+    fields = { ...fields, form: old.form, assetIds, initialBalances };
   }
   if (fields.form === 'cash') fields = { ...fields, serviceId: '', requisite: '' };
   const { list, entity } = upsert(d.accounts, fields, id);
   return { data: { ...d, accounts: list }, entity };
+}
+
+export const accountsInOrder = (list: Account[]) => [...list].sort((a, b) => a.order - b.order);
+
+/** Moves an account to where another one is and renumbers; only accounts whose place changed are rewritten. */
+export function moveAccount(d: Data, id: string, overId: string): Data {
+  const list = accountsInOrder(d.accounts);
+  const from = list.findIndex((a) => a.id === id);
+  const to = list.findIndex((a) => a.id === overId);
+  if (from < 0 || to < 0 || from === to) return d;
+  list.splice(to, 0, ...list.splice(from, 1));
+  const t = now();
+  const moved = new Map(list.map((a, i) => [a.id, a.order === i ? a : { ...a, order: i, updatedAt: t }]));
+  return { ...d, accounts: d.accounts.map((a) => moved.get(a.id)!) };
 }
 
 /** Deletes the account together with every transaction it takes part in. */

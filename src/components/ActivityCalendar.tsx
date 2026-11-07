@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
+import { toLocalInput } from '../lib/format';
 import type { Transaction } from '../lib/types';
 import { Segmented, usePref } from './bits';
 
@@ -12,11 +13,23 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
 /** 0..4 intensity relative to the busiest cell. */
 const level = (n: number, max: number) => (n === 0 ? 0 : Math.min(4, Math.ceil((n / Math.max(max, 1)) * 4)));
 
+/** A time range as two datetime-local values, both ends included (to the minute). */
+export interface CalendarRange {
+  from: string;
+  to: string;
+}
+
+const rangeOf = (start: Date, end: Date): CalendarRange => ({ from: toLocalInput(start), to: toLocalInput(end) });
+const dayRange = (d: Date) => rangeOf(new Date(d.getFullYear(), d.getMonth(), d.getDate()), new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59));
+const monthRange = (y: number, m: number) => rangeOf(new Date(y, m, 1), new Date(y, m + 1, 0, 23, 59));
+const yearRange = (y: number) => rangeOf(new Date(y, 0, 1), new Date(y, 11, 31, 23, 59));
+
 /**
  * Activity calendar: how many transactions happened per day (a year as a week grid),
- * per month or per year.
+ * per month or per year. With `pick`, a day, month or year can be clicked to choose it as
+ * a time range (clicking the chosen one again clears it); the chosen one is outlined.
  */
-export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
+export function ActivityCalendar({ txs, pick }: { txs: Transaction[]; pick?: { value: CalendarRange; onChange: (r: CalendarRange | null) => void } }) {
   const { t, tn, locale, date } = useI18n();
   const [mode, setMode] = usePref<Mode>('calendarMode', 'days');
   const years = useMemo(() => {
@@ -47,6 +60,9 @@ export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
     const f = new Intl.DateTimeFormat(locale, { weekday: 'short' });
     return Array.from({ length: 7 }, (_, i) => f.format(new Date(2024, 0, 1 + i))); // 2024-01-01 is a Monday
   }, [locale]);
+
+  const chosen = (r: CalendarRange) => !!pick && pick.value.from === r.from && pick.value.to === r.to;
+  const choose = (r: CalendarRange) => pick?.onChange(chosen(r) ? null : r);
 
   const header = (
     <div className="cal-head">
@@ -86,11 +102,21 @@ export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
     let max = 0;
     for (const w of weeks) for (const d of w) if (d.getFullYear() === year) max = Math.max(max, counts.days.get(dayKey(d)) ?? 0);
     const total = counts.perYear.get(year) ?? 0;
+    // a month's name stands over the week holding its 1st day
+    const monthStarts = weeks.flatMap((w, i) => w.filter((d) => d.getFullYear() === year && d.getDate() === 1).map((d) => ({ month: d.getMonth(), col: i })));
+    const columns = `28px repeat(${weeks.length}, 1fr)`;
     return (
       <div className="cal">
         {header}
         <div className="cal-scroll">
-          <div className="cal-days" style={{ gridTemplateColumns: `28px repeat(${weeks.length}, 1fr)` }}>
+          <div className="cal-mrow" style={{ gridTemplateColumns: columns }} aria-hidden="true">
+            {monthStarts.map(({ month, col }) => (
+              <span key={month} style={{ gridColumn: col + 2 }}>
+                {monthNames[month]}
+              </span>
+            ))}
+          </div>
+          <div className="cal-days" style={{ gridTemplateColumns: columns }}>
             <div className="cal-wd">
               {weekdayNames.map((w, i) => (
                 <span key={i}>{i % 2 === 0 ? w : ''}</span>
@@ -101,11 +127,13 @@ export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
                 {w.map((d) => {
                   const inYear = d.getFullYear() === year;
                   const n = inYear ? (counts.days.get(dayKey(d)) ?? 0) : 0;
+                  const r = dayRange(d);
                   return (
                     <span
                       key={d.getTime()}
-                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'}`}
+                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'} ${pick && inYear ? 'pickable' : ''} ${inYear && chosen(r) ? 'chosen' : ''}`}
                       title={inYear ? `${date(d.getTime())}: ${tn('counts.transactions', n)}` : undefined}
+                      onClick={pick && inYear ? () => choose(r) : undefined}
                     />
                   );
                 })}
@@ -130,11 +158,20 @@ export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
         <div className="cal-months">
           {monthNames.map((name, m) => {
             const n = counts.months.get(`${year}-${m}`) ?? 0;
+            const r = monthRange(year, m);
+            const Tag = pick ? 'button' : 'div';
             return (
-              <div key={m} className={`cal-month l${level(n, max)}`} title={tn('counts.transactions', n)}>
+              <Tag
+                key={m}
+                type={pick ? 'button' : undefined}
+                className={`cal-month l${level(n, max)} ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''}`}
+                title={tn('counts.transactions', n)}
+                aria-pressed={pick ? chosen(r) : undefined}
+                onClick={pick ? () => choose(r) : undefined}
+              >
                 <span>{name}</span>
                 <strong>{n}</strong>
-              </div>
+              </Tag>
             );
           })}
         </div>
@@ -153,14 +190,22 @@ export function ActivityCalendar({ txs }: { txs: Transaction[] }) {
       <div className="cal-years">
         {years.map((y) => {
           const n = counts.perYear.get(y) ?? 0;
+          const r = yearRange(y);
+          const Tag = pick ? 'button' : 'div';
           return (
-            <div key={y} className="cal-yearbar">
+            <Tag
+              key={y}
+              type={pick ? 'button' : undefined}
+              className={`cal-yearbar ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''}`}
+              aria-pressed={pick ? chosen(r) : undefined}
+              onClick={pick ? () => choose(r) : undefined}
+            >
               <span className="cal-yearbar-label">{y}</span>
               <span className="cal-yearbar-track">
                 <span className="cal-yearbar-fill" style={{ width: `${(n / max) * 100}%` }} />
               </span>
               <strong>{n}</strong>
-            </div>
+            </Tag>
           );
         })}
       </div>

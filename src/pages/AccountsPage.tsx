@@ -1,17 +1,21 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { ActivityCalendar } from '../components/ActivityCalendar';
-import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, MultiSelect, Pagination, SearchField, Segmented, Stat, useContactOptions, usePaged } from '../components/bits';
+import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { AssetAmounts, FORM_ICON, AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Field, FormBadge, Highlight, MultiSelect, type Option, Pagination, Picker, SearchField, Segmented, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
-import { TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
+import { formPalette, imagePalette, type CardPalette } from '../lib/cardPalette';
 import { parseAmount } from '../lib/format';
-import { deleteAccount, saveAccount, servicesInOrder } from '../lib/ops';
+import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
-import { getIndex, sortAccountsForPicker } from '../lib/stats';
+import { getIndex } from '../lib/stats';
+import { TxBrowser } from '../components/TxBrowser';
 import { FORMS, LIMITS, type Account, type FormId } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
@@ -21,14 +25,15 @@ import { NotFound } from './common';
 const NO_CONTACT = '__none__';
 
 export function AccountsPage({ query }: { query?: URLSearchParams }) {
-  const { t, tn, locale } = useI18n();
+  const { t } = useI18n();
   const data = useStore((s) => s.data);
-  const ix = getIndex(data);
   const contactOptions = useContactOptions(data.contacts);
   // a link with a contact (from a contact's page) has its own remembered filters
   const scope = `accounts.${query?.get('contact') ?? ''}`;
+  const selfId = getIndex(data).self?.id;
   const [q, setQ] = useViewState(`${scope}.q`, '');
-  const [contacts, setContacts] = useViewState<string[]>(`${scope}.contacts`, query?.get('contact') ? [query.get('contact')!] : []);
+  // by default the list shows the user's own accounts; the filter can be cleared for all
+  const [contacts, setContacts] = useViewState<string[]>(`${scope}.contacts`, query?.get('contact') ? [query.get('contact')!] : selfId ? [selfId] : []);
   const [assets, setAssets] = useViewState<string[]>(`${scope}.assets`, []);
   const [forms, setForms] = useViewState<string[]>(`${scope}.forms`, []);
   const [services, setServices] = useViewState<string[]>(`${scope}.services`, []);
@@ -37,22 +42,26 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
 
   const list = useMemo(
     () =>
-      sortAccountsForPicker(
-        ix,
-        data.accounts.filter(
-          (a) =>
-            matchesAny(q, a.name, a.requisite) &&
-            (!contacts.length || contacts.includes(a.contactId || NO_CONTACT)) &&
-            (!assets.length || a.assetIds.some((x) => assets.includes(x))) &&
-            (!forms.length || forms.includes(a.form)) &&
-            (!services.length || services.includes(a.serviceId)),
-        ),
-        locale,
+      accountsInOrder(data.accounts).filter(
+        (a) =>
+          matchesAny(q, a.name, a.requisite) &&
+          (!contacts.length || contacts.includes(a.contactId || NO_CONTACT)) &&
+          (!assets.length || a.assetIds.some((x) => assets.includes(x))) &&
+          (!forms.length || forms.includes(a.form)) &&
+          (!services.length || services.includes(a.serviceId)),
       ),
-    [data.accounts, ix, q, contacts, assets, forms, services, locale],
+    [data.accounts, q, contacts, assets, forms, services],
   );
   const paged = usePaged(list, 'accounts', `${q}|${contacts}|${assets}|${forms}|${services}`);
-  const filtered = !!(q || contacts.length || assets.length || forms.length || services.length);
+  const filtered = !!(q.trim() || contacts.length || assets.length || forms.length || services.length);
+  // the order is changed on the full list or on one person's accounts (the default view is the user's own),
+  // never on search or other filter results; a card moves to where the other one is in the whole list
+  const sortable = !q.trim() && !assets.length && !forms.length && !services.length && contacts.length <= 1;
+  const sensors = useDragSensors();
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    swallowNextClick();
+    if (over && active.id !== over.id) mutate((d) => moveAccount(d, String(active.id), String(over.id)));
+  };
 
   return (
     <>
@@ -66,7 +75,7 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
           </button>
         }
       />
-      <div className="toolbar">
+      <div className="toolbar toolbar-wide">
         <SearchField value={q} onChange={setQ} placeholder={t('accounts.search')} />
         <MultiSelect
           label={t('filter.contact')}
@@ -94,22 +103,129 @@ export function AccountsPage({ query }: { query?: URLSearchParams }) {
       {list.length === 0 ? (
         <EmptyState icon="wallet" text={filtered ? t('common.nothingFound') : t('accounts.empty')} />
       ) : (
-        <div className="rows">
-          {paged.items.map((a) => (
-            <AccountRow key={a.id} a={a} q={q} onEdit={() => setEdit(a)} onDelete={() => setDel(a)} />
-          ))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={paged.items.map((a) => a.id)} strategy={rectSortingStrategy} disabled={!sortable}>
+            <div className="acc-grid">
+              {paged.items.map((a) => (
+                <AccountCard key={a.id} a={a} q={q} sortable={sortable} onEdit={() => setEdit(a)} onDelete={() => setDel(a)} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
       <Pagination p={paged} />
-      <p className="list-total muted">{tn('counts.accounts', list.length)}</p>
       {edit && <AccountEditor account={edit === 'new' ? null : edit} onClose={() => setEdit(null)} />}
       {del && <DeleteAccount account={del} onClose={() => setDel(null)} />}
     </>
   );
 }
 
+
+/** The card colours: from the service logo once it is read, the form's colours meanwhile or without one. */
+function useCardPalette(image: string | undefined, form: FormId): CardPalette {
+  const [palette, setPalette] = useState<CardPalette | null>(null);
+  useEffect(() => {
+    let live = true;
+    setPalette(null);
+    if (image) void imagePalette(image).then((p) => live && setPalette(p));
+    return () => {
+      live = false;
+    };
+  }, [image]);
+  return palette ?? formPalette(form);
+}
+
+/** What a bank card shows; `inLink` when the card itself is a link (the contact chip then navigates by script). */
+function AccountCardFace({ a, q = '', menu, inLink }: { a: Account; q?: string; menu?: ReactNode; inLink: boolean }) {
+  const { t } = useI18n();
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const contact = a.contactId ? ix.contacts.get(a.contactId) : undefined;
+  const service = a.serviceId ? ix.services.get(a.serviceId) : undefined;
+  // one under another, the two largest amounts at most
+  const balances = ix.account.get(a.id)!.balances;
+  const top = a.assetIds
+    .map((x) => ix.assets.get(x))
+    .filter((x) => !!x)
+    .sort((x, y) => Math.abs(balances.get(y.id) ?? 0) - Math.abs(balances.get(x.id) ?? 0))
+    .slice(0, 2);
+  return (
+    <>
+      <div className="acc-card-top">
+        <span className="acc-card-logo">
+          {service?.image ? <Avatar image={service.image} name={service.name} size={44} /> : <Icon name={FORM_ICON[a.form]} size={24} />}
+        </span>
+        <div className="acc-card-head">
+          <span className="acc-card-name">
+            <Highlight text={a.name} query={q} />
+          </span>
+          <span className="acc-card-form">
+            {t(`form.${a.form}`)}
+            {service && ` · ${service.name}`}
+          </span>
+        </div>
+        {menu}
+      </div>
+      <div className="acc-card-balances">
+        <AssetAmounts map={balances} assets={top} keepZero column />
+      </div>
+      <div className="acc-card-bottom">
+        {contact ? <ContactChip contact={contact} href={href.detail('contacts', contact.id)} inLink={inLink} /> : <span className="acc-card-nobody">{t('tx.noContact')}</span>}
+        {contact?.isSelf && <span className="acc-card-own-badge">{t('accounts.yours')}</span>}
+      </div>
+    </>
+  );
+}
+
+const paletteStyle = (p: CardPalette) => ({ '--card-from': p.from, '--card-to': p.to }) as CSSProperties;
+
+/** An account as a bank card in the grid; drag it onto another card to change the order. */
+function AccountCard({ a, q, sortable, onEdit, onDelete }: { a: Account; q: string; sortable: boolean; onEdit: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
+  const data = useStore((s) => s.data);
+  const service = a.serviceId ? getIndex(data).services.get(a.serviceId) : undefined;
+  const palette = useCardPalette(service?.image || undefined, a.form);
+  const { setNodeRef, listeners, attributes, transform, transition, isDragging } = useSortable({ id: a.id });
+  return (
+    <a
+      ref={setNodeRef}
+      className={`acc-card ${isDragging ? 'acc-card-dragging' : ''}`}
+      href={href.detail('accounts', a.id)}
+      style={{ ...paletteStyle(palette), transform: CSS.Translate.toString(transform), transition }}
+      {...dragHandle(sortable, attributes, listeners)}
+    >
+      <AccountCardFace
+        a={a}
+        q={q}
+        inLink
+        menu={
+          <CardMenu
+            actions={[
+              { label: t('tx.add'), icon: 'plus', onSelect: () => openTxForm({ prefill: { fromId: a.id } }) },
+              { label: t('common.edit'), icon: 'edit', onSelect: onEdit },
+              { label: t('common.delete'), icon: 'trash', danger: true, onSelect: onDelete },
+            ]}
+          />
+        }
+      />
+    </a>
+  );
+}
+
+/** The same card on the account's own page: nothing to open, so not a link. */
+function AccountCardStatic({ a }: { a: Account }) {
+  const data = useStore((s) => s.data);
+  const service = a.serviceId ? getIndex(data).services.get(a.serviceId) : undefined;
+  const palette = useCardPalette(service?.image || undefined, a.form);
+  return (
+    <div className="acc-card acc-card-static" style={paletteStyle(palette)}>
+      <AccountCardFace a={a} inLink={false} />
+    </div>
+  );
+}
+
 export function AccountRow({ a, q = '', onEdit, onDelete }: { a: Account; q?: string; onEdit?: () => void; onDelete?: () => void }) {
-  const { t, tn } = useI18n();
+  const { t } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
   const contact = a.contactId ? ix.contacts.get(a.contactId) : undefined;
@@ -124,18 +240,8 @@ export function AccountRow({ a, q = '', onEdit, onDelete }: { a: Account; q?: st
           <FormBadge form={a.form} />
         </div>
         <div className="row-meta">
-          {contact && (
-            <span className={contact.isSelf ? 'own-tag' : ''}>
-              <Icon name="user" size={13} /> {contact.name}
-            </span>
-          )}
+          {contact && <ContactChip contact={contact} href={href.detail('contacts', contact.id)} inLink />}
           {service && <span className="muted">{service.name}</span>}
-          {a.requisite && (
-            <span className="requisite">
-              <Highlight text={a.requisite} query={q} />
-            </span>
-          )}
-          <span className="muted">{tn('counts.transactions', s.flow.tx)}</span>
         </div>
       </div>
       <div className="row-side">
@@ -162,22 +268,10 @@ export function AccountDetail({ id }: { id: string }) {
   const account = ix.accounts.get(id);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
-  const [q, setQ] = useViewState(`account.${id}.q`, '');
-  const [dir, setDir] = useViewState<'all' | 'in' | 'out'>(`account.${id}.dir`, 'all');
+  const [tab, setTab] = useViewState<'main' | 'more'>('account.detailsTab', 'main');
   const side = useMemo(() => new Set([id]), [id]);
   const s = ix.account.get(id);
 
-  const txs = useMemo(() => {
-    if (!s) return [];
-    return s.txs.filter((x) => {
-      if (dir === 'in' && x.toId !== id) return false;
-      if (dir === 'out' && x.fromId !== id) return false;
-      if (!q) return true;
-      const other = ix.accounts.get(x.fromId === id ? x.toId : x.fromId);
-      const cat = ix.categories.get(x.categoryId);
-      return matchesAny(q, x.description, other?.name, other?.contactId ? ix.contacts.get(other.contactId)?.name : '', cat?.name);
-    });
-  }, [s, dir, q, ix, id]);
 
   if (!account || !s) return <NotFound />;
   const contact = account.contactId ? ix.contacts.get(account.contactId) : undefined;
@@ -189,19 +283,6 @@ export function AccountDetail({ id }: { id: string }) {
       <PageHead
         crumbs={[{ label: t('nav.accounts'), href: href.list('accounts') }]}
         title={account.name}
-        icon={service ? <Avatar image={service.image} name={service.name} size={34} /> : <Avatar name={account.name} size={34} />}
-        subtitle={
-          <span className="badges">
-            <FormBadge form={account.form} />
-            {contact && (
-              <a href={href.detail('contacts', contact.id)} className={contact.isSelf ? 'own-tag' : ''}>
-                <Icon name="user" size={14} /> {contact.name}
-              </a>
-            )}
-            {service && <a href={href.detail('services', service.id)}>{service.name}</a>}
-            {account.requisite && <span className="requisite">{account.requisite}</span>}
-          </span>
-        }
         actions={
           <>
             <button type="button" className="btn btn-primary" onClick={() => openTxForm({ prefill: { fromId: id } })}>
@@ -223,75 +304,104 @@ export function AccountDetail({ id }: { id: string }) {
           </>
         }
       />
-      <div className="stats-row">
-        <Stat label={t('accounts.balance')} icon="wallet">
-          <AssetAmounts map={s.balances} assets={assets} keepZero />
-        </Stat>
-        <Stat label={t('stats.transactions')} hint={t('stats.inOutCount', { in: num(s.flow.txIn), out: num(s.flow.txOut) })}>
-          {num(s.flow.tx)}
-        </Stat>
-        <Stat label={t('stats.received')} icon="arrowIn">
-          <AssetAmounts map={s.flow.in} assets={assets} />
-        </Stat>
-        <Stat label={t('stats.sent')} icon="arrowOut">
-          <AssetAmounts map={s.flow.out} assets={assets} />
-        </Stat>
-        <Stat label={t('stats.fees')} icon="fee">
-          <AssetAmounts map={s.flow.fees} assets={data.assets} />
-        </Stat>
+      <div className="acc-layout">
+        <AccountCardStatic a={account} />
+        <section className="panel acc-stats">
+          <h2>{t('accounts.stats')}</h2>
+          <div className="cells cells-3">
+            <div className="cell">
+              <span className="cell-label">{t('accounts.balance')}</span>
+              <AssetAmounts map={s.balances} assets={assets} keepZero column />
+            </div>
+            <div className="cell">
+              <span className="cell-label">{t('stats.transactions')}</span>
+              <span>
+                {num(s.flow.tx)} <span className="muted small">({t('stats.inOutCount', { in: num(s.flow.txIn), out: num(s.flow.txOut) })})</span>
+              </span>
+            </div>
+            <div className="cell">
+              <span className="cell-label">{t('stats.fees')}</span>
+              <AssetAmounts map={s.flow.fees} assets={data.assets} column />
+            </div>
+            <div className="cell">
+              <span className="cell-label">
+                <Icon name="arrowIn" size={14} className="flow-in" />
+                {t('stats.received')}
+              </span>
+              <AssetAmounts map={s.flow.in} assets={assets} column />
+            </div>
+            <div className="cell">
+              <span className="cell-label">
+                <Icon name="arrowOut" size={14} className="flow-out" />
+                {t('stats.sent')}
+              </span>
+              <AssetAmounts map={s.flow.out} assets={assets} column />
+            </div>
+          </div>
+        </section>
       </div>
-      <div className="detail-grid">
-        <section className="panel">
+      <section className="panel acc-details">
+        <div className="panel-head">
           <h2>{t('common.details')}</h2>
-          <dl className="kv">
-            <dt>{t('accounts.assets')}</dt>
-            <dd className="badges">
-              {assets.map((a) => (
-                <a key={a.id} href={href.detail('assets', a.id)} className="chip">
-                  <AssetIcon asset={a} size={14} /> {a.code}
-                </a>
-              ))}
-            </dd>
-            <dt>{t('accounts.initial')}</dt>
-            <dd>
-              <AssetAmounts map={new Map(Object.entries(account.initialBalances))} assets={assets} keepZero />
-            </dd>
-            <dt>{t('common.description')}</dt>
-            <dd className="pre">{account.description || <span className="muted">—</span>}</dd>
-            <dt>{t('common.created')}</dt>
-            <dd>{i18n.dateTime(account.createdAt)}</dd>
-            <dt>{t('common.updated')}</dt>
-            <dd>{i18n.dateTime(account.updatedAt)}</dd>
-          </dl>
-        </section>
-        <section className="panel panel-wide">
-          <h2>{t('stats.activity')}</h2>
-          <ActivityCalendar txs={s.txs} />
-        </section>
-      </div>
-      <section className="section">
-        <div className="section-head">
-          <h2>
-            {t('nav.transactions')} <span className="count">{s.txs.length}</span>
-          </h2>
-          <a className="btn btn-sm" href={href.transactions({ account: id })}>
-            {t('common.openAll')}
-          </a>
-        </div>
-        <div className="toolbar">
-          <SearchField value={q} onChange={setQ} placeholder={t('tx.search')} />
           <Segmented
-            value={dir}
-            onChange={setDir}
+            value={tab}
+            onChange={setTab}
             options={[
-              { value: 'all', label: t('dir.all') },
-              { value: 'in', label: t('dir.in') },
-              { value: 'out', label: t('dir.out') },
+              { value: 'main', label: t('accounts.tabMain') },
+              { value: 'more', label: t('accounts.tabMore') },
             ]}
           />
         </div>
-        <TxList txs={txs} side={side} q={q} prefKey="accountTx" resetKey={`${id}|${q}|${dir}`} />
+        {tab === 'main' ? (
+          <>
+            <div className="cells cells-3">
+              <div className="cell">
+                <span className="cell-label">{t('accounts.contact')}</span>
+                {contact ? <ContactChip contact={contact} href={href.detail('contacts', contact.id)} /> : <span className="muted">{t('tx.noContact')}</span>}
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('accounts.service')}</span>
+                {service ? (
+                  <a className="cell-link" href={href.detail('services', service.id)}>
+                    <Avatar image={service.image} name={service.name} size={22} />
+                    {service.name}
+                  </a>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('accounts.form')}</span>
+                <FormBadge form={account.form} />
+              </div>
+              <div className="cell">
+                <span className="cell-label">{t('accounts.requisite')}</span>
+                {account.requisite ? <span className="requisite">{account.requisite}</span> : <span className="muted">—</span>}
+              </div>
+            </div>
+            <div className="cell">
+              <span className="cell-label">{t('common.description')}</span>
+              <span className="pre">{account.description || <span className="muted">—</span>}</span>
+            </div>
+          </>
+        ) : (
+          <div className="cells cells-3">
+            <div className="cell">
+              <span className="cell-label">{t('accounts.createdWith')}</span>
+              <AssetAmounts map={new Map(Object.entries(account.initialBalances))} assets={assets} keepZero column />
+            </div>
+            <div className="cell">
+              <span className="cell-label">{t('common.created')}</span>
+              <span>{i18n.dateTime(account.createdAt)}</span>
+            </div>
+            <div className="cell">
+              <span className="cell-label">{t('common.updated')}</span>
+              <span>{i18n.dateTime(account.updatedAt)}</span>
+            </div>
+          </div>
+        )}
       </section>
+      <TxBrowser txs={s.txs} side={side} stateKey={`account.${id}`} prefKey="accountTx" />
       {edit && <AccountEditor account={account} onClose={() => setEdit(false)} />}
       {del && <DeleteAccount account={account} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('accounts'))} />}
     </>
@@ -332,8 +442,10 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
   const [tried, setTried] = useState(false);
 
   const isNew = !account;
+  const contactOptions = useContactOptions(data.contacts);
   const fixedAssets = new Set(account?.assetIds ?? []);
   const formAssets = data.assets.filter((a) => a.forms.includes(form) || fixedAssets.has(a.id)).sort(byName(locale));
+  const assetOptions: Option[] = formAssets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={22} /> }));
   const services = servicesInOrder(data.services).filter((s) => s.forms.includes(form));
   // assets whose starting balance can still be set: all on creation, newly added ones for crypto
   const editableBalance = assetIds.filter((x) => !fixedAssets.has(x));
@@ -342,11 +454,6 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
     setForm(f);
     setAssetIds([]);
     setServiceId('');
-  };
-  const toggleAsset = (id: string) => {
-    if (fixedAssets.has(id)) return;
-    if (form !== 'crypto') setAssetIds([id]);
-    else setAssetIds(assetIds.includes(id) ? assetIds.filter((x) => x !== id) : [...assetIds, id]);
   };
 
   const balanceErrors = Object.fromEntries(
@@ -393,58 +500,27 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
       <form id="entity-form" className="form" onSubmit={submit} noValidate>
         <div className="form-grid">
           <NameField value={name} onChange={setName} error={err('name')} />
-          <Field label={t('accounts.contact')} hint={t('accounts.contactHint')}>
-            <select className="select" value={contact} onChange={(e) => setContact(e.target.value)}>
-              <option value="">{t('tx.noContact')}</option>
-              {[...data.contacts]
-                .sort((a, b) => Number(b.isSelf) - Number(a.isSelf) || byName<typeof a>(locale)(a, b))
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                    {c.isSelf ? ` (${t('contacts.me')})` : ''}
-                  </option>
-                ))}
-            </select>
+          <Field label={t('accounts.contact')} group>
+            <Picker value={contact} onChange={setContact} options={[{ value: '', label: t('common.absent') }, ...contactOptions]} placeholder={t('common.absent')} ariaLabel={t('accounts.contact')} />
           </Field>
         </div>
-        <Field label={t('accounts.form')} group hint={isNew ? t('accounts.formHint') : t('accounts.formLocked')}>
-          {isNew ? (
-            <Segmented<FormId> value={form} onChange={changeForm} options={FORMS.map((f) => ({ value: f, label: t(`form.${f}`) }))} />
-          ) : (
-            <span>
-              <FormBadge form={form} />
-            </span>
-          )}
-        </Field>
-        <Field
-          label={form === 'crypto' ? t('accounts.assets') : t('accounts.asset')}
-          group
-          error={err('assets')}
-          hint={isNew ? (form === 'crypto' ? t('accounts.assetsHintCrypto') : t('accounts.assetHint')) : form === 'crypto' ? t('accounts.assetsAddHint') : t('accounts.assetLocked')}
-        >
-          {formAssets.length === 0 ? (
-            <p className="muted">{t('accounts.noFormAssets')}</p>
-          ) : (
-            <div className="check-row">
-              {formAssets.map((a) => {
-                const locked = fixedAssets.has(a.id) || (!isNew && form !== 'crypto');
-                return (
-                  <label key={a.id} className={`check-chip ${assetIds.includes(a.id) ? 'on' : ''} ${locked ? 'locked' : ''}`}>
-                    <input
-                      type={form === 'crypto' ? 'checkbox' : 'radio'}
-                      name="asset"
-                      checked={assetIds.includes(a.id)}
-                      disabled={locked}
-                      onChange={() => toggleAsset(a.id)}
-                    />
-                    <AssetIcon asset={a} size={16} />
-                    {a.code}
-                  </label>
-                );
-              })}
-            </div>
-          )}
-        </Field>
+        {/* the form and the assets are chosen once, when the account is created */}
+        {isNew && (
+          <div className="form-grid">
+            <Field label={t('accounts.form')} group>
+              <Picker value={form} onChange={(v) => changeForm(v as FormId)} options={FORMS.map((f) => ({ value: f, label: t(`form.${f}`) }))} ariaLabel={t('accounts.form')} />
+            </Field>
+            <Field label={form === 'crypto' ? t('accounts.assets') : t('accounts.asset')} group error={err('assets')}>
+              {formAssets.length === 0 ? (
+                <p className="muted">{t('accounts.noFormAssets')}</p>
+              ) : form === 'crypto' ? (
+                <Picker multiple value={assetIds} onChange={setAssetIds} options={assetOptions} placeholder={t('common.absent')} ariaLabel={t('accounts.assets')} />
+              ) : (
+                <Picker value={assetIds[0] ?? ''} onChange={(v) => setAssetIds([v])} options={assetOptions} placeholder={t('common.absent')} ariaLabel={t('accounts.asset')} />
+              )}
+            </Field>
+          </div>
+        )}
         {editableBalance.length > 0 && (
           <div className="initial-box">
             <div className="initial-box-head">
@@ -474,18 +550,20 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
         )}
         {form !== 'cash' && (
           <div className="form-grid">
-            <Field label={t('accounts.requisite')} error={err('requisite')} hint={form === 'crypto' ? t('accounts.requisiteHintCrypto') : t('accounts.requisiteHint')}>
+            <Field label={t('accounts.requisite')} error={err('requisite')}>
               <input type="text" value={requisite} onChange={(e) => setRequisite(e.target.value)} placeholder={form === 'crypto' ? 'T…' : '4149 …'} />
             </Field>
-            <Field label={t('accounts.service')}>
-              <select className="select" value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
-                <option value="">{t('accounts.noService')}</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+            <Field label={t('accounts.service')} group>
+              <Picker
+                value={serviceId}
+                onChange={setServiceId}
+                options={[
+                  { value: '', label: t('common.absent') },
+                  ...services.map((x) => ({ value: x.id, label: x.name, icon: <Avatar image={x.image} name={x.name} size={22} /> })),
+                ]}
+                placeholder={t('common.absent')}
+                ariaLabel={t('accounts.service')}
+              />
             </Field>
           </div>
         )}

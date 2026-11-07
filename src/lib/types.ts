@@ -63,6 +63,8 @@ export interface Account extends Timestamps {
   requisite: string;
   contactId: string;
   serviceId: string;
+  /** position in the accounts list, ascending; set by drag and drop */
+  order: number;
 }
 
 export interface Category extends Timestamps {

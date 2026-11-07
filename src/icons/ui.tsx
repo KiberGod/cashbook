@@ -142,12 +142,34 @@ const PATHS = {
       <path d="M4 16V5a2 2 0 0 1 2-2h11" />
     </>
   ),
+  cash: (
+    <>
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 12h.01M18 12h.01" />
+    </>
+  ),
+  card: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20M6 15h4" />
+    </>
+  ),
+  crypto: (
+    <path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L5.86 18.047m5.908 1.042-.347 1.97m1.563-8.864c4.924.869 6.14-6.025 1.215-6.893m-1.215 6.893-3.94-.694m5.155-6.2L8.29 4.26m5.908 1.042.348-1.97M7.48 20.364l3.126-17.727" />
+  ),
   bank: <path d="M3 10h18M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18M12 3l9 5H3z" />,
   handshake: (
     <>
       <path d="m11 17 2 2a1.4 1.4 0 0 0 2-2" />
       <path d="m14 14 2.5 2.5a1.4 1.4 0 0 0 2-2l-3.9-3.9a2 2 0 0 0-2.8 0l-.9.9a1.4 1.4 0 0 1-2-2l2.8-2.8a3.5 3.5 0 0 1 4.3-.5l.5.3a2 2 0 0 0 1.5.3L21 6" />
       <path d="m21 3 1 10h-2M3 3 2 13l6.5 6.5a1.4 1.4 0 0 0 2-2M3 4h8" />
+    </>
+  ),
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </>
   ),
   calendar: (
@@ -218,9 +240,10 @@ const PATHS = {
 
 export type UiIconName = keyof typeof PATHS;
 
-export function Icon({ name, size = 20 }: { name: UiIconName; size?: number }) {
+export function Icon({ name, size = 20, className }: { name: UiIconName; size?: number; className?: string }) {
   return (
     <svg
+      className={className}
       width={size}
       height={size}
       viewBox="0 0 24 24"

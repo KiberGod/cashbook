@@ -113,6 +113,7 @@ export function presetData(lang: Lang): Data {
     requisite: '',
     contactId: self.id,
     serviceId: '',
+    order: 0,
     ...stamps,
   };
 

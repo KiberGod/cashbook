@@ -33,6 +33,23 @@ const STEPS: Record<number, Step> = {
     }
     return { ...t, categories: t.categories.map((c) => ({ ...c, order: order.get(c) })) };
   },
+  // accounts got a position in their list; start from how it was sorted: own accounts, then by contact and name
+  3: (t) => {
+    const truthy = (v: unknown) => v === true || /^(true|1|yes)$/i.test(String(v ?? ''));
+    const selfId = String(t.contacts.find((c) => truthy(c.isSelf))?.id ?? '');
+    const names = new Map(t.contacts.map((c) => [String(c.id), String(c.name ?? '')]));
+    const key = (a: RawRecord) => {
+      const contact = String(a.contactId ?? '');
+      return [contact && contact === selfId ? 0 : 1, contact ? (names.get(contact) ?? '') : '\uffff', String(a.name ?? '')] as const;
+    };
+    const sorted = [...t.accounts].sort((a, b) => {
+      const [sa, ca, na] = key(a);
+      const [sb, cb, nb] = key(b);
+      return sa - sb || ca.localeCompare(cb) || na.localeCompare(nb);
+    });
+    const order = new Map(sorted.map((a, i) => [a, i]));
+    return { ...t, accounts: t.accounts.map((a) => ({ ...a, order: order.get(a) })) };
+  },
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

@@ -6,7 +6,7 @@ import { categoryTree, servicesInOrder } from '../lib/ops';
 import { sortAccountsForPicker, type Index } from '../lib/stats';
 import { FORMS } from '../lib/types';
 import { useStore } from '../store/store';
-import { AssetIcon, Avatar, Field, MultiSelect, SearchField, useContactOptions, type Option } from './bits';
+import { AccountIcon, AssetIcon, Avatar, Field, MultiSelect, SearchField, useContactOptions, type Option } from './bits';
 import { PeriodPicker } from './PeriodPicker';
 
 /** Option lists for the filter dropdowns, shared by the transactions page and analytics. */
@@ -19,13 +19,14 @@ export function useFilterOptions(ix: Index) {
     const accounts: Option[] = sortAccountsForPicker(ix, data.accounts, locale).map((a) => ({
       value: a.id,
       label: a.name,
+      icon: <AccountIcon account={a} service={a.serviceId ? ix.services.get(a.serviceId) : undefined} size={18} />,
       hint: a.assetIds.map((x) => ix.assets.get(x)?.code).join(', '),
       group: a.contactId === ix.self?.id ? t('tx.myAccounts') : contactName(a.contactId),
     }));
     const categories: Option[] = [
       ...categoryTree(data.categories).flatMap(({ root, children }) => [
-        { value: root.id, label: root.name },
-        ...children.map((c) => ({ value: c.id, label: c.name, depth: 1 })),
+        { value: root.id, label: root.name, icon: <Avatar image={root.image} name={root.name} size={18} fallback="tag" /> },
+        ...children.map((c) => ({ value: c.id, label: c.name, depth: 1, icon: <Avatar image={c.image} name={c.name} size={18} fallback="tag" /> })),
       ]),
       { value: NONE, label: t('tx.noCategory') },
     ];

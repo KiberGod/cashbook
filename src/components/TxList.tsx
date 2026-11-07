@@ -7,7 +7,7 @@ import type { Account, Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
-import { AssetIcon, CardMenu, EmptyState, Highlight, Money, Pagination, usePaged } from './bits';
+import { AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Highlight, Money, Pagination, usePaged } from './bits';
 import { ConfirmDialog } from './Modal';
 
 export type Direction = 'in' | 'out' | 'internal' | 'other';
@@ -41,7 +41,20 @@ function AccountRef({ ix, account, q }: { ix: Index; account: Account | undefine
   );
 }
 
-export function TxRow({ t: tx, side, q = '' }: { t: Transaction; side: Set<string> | null; q?: string }) {
+/** One side of a transaction as a contact chip (the row is clickable itself, so the chip navigates by script). */
+function PartyChip({ ix, account, q }: { ix: Index; account: Account | undefined; q: string }) {
+  const { t } = useI18n();
+  if (!account) return <span className="muted">{t('tx.external')}</span>;
+  const contact = account.contactId ? ix.contacts.get(account.contactId) : undefined;
+  if (!contact) return <span className="muted">{t('tx.noContact')}</span>;
+  return <ContactChip contact={contact} query={q} href={href.detail('contacts', contact.id)} inLink />;
+}
+
+/**
+ * `rich`: the parties as contact chips, and the category's picture (the sub-category's, else
+ * its parent's) with a small direction badge on its edge instead of the plain direction arrow.
+ */
+export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; side: Set<string> | null; q?: string; rich?: boolean }) {
   const i18n = useI18n();
   const { t } = i18n;
   const data = useStore((s) => s.data);
@@ -54,40 +67,76 @@ export function TxRow({ t: tx, side, q = '' }: { t: Transaction; side: Set<strin
   const debt = tx.debtId ? ix.debts.get(tx.debtId) : undefined;
   const dir = directionOf(tx, side);
   const value = dir === 'out' ? -tx.amount : dir === 'in' ? tx.amount : tx.amount;
+  const dirIcon = dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap';
+  const picture = rich ? category?.image || parent?.image || '' : '';
+  const categoryChip = category && (
+    <a className="chip" href={href.detail('categories', category.id)} onClick={(e) => e.stopPropagation()}>
+      <Icon name="tag" size={12} />
+      {parent ? `${parent.name} / ` : ''}
+      <Highlight text={category.name} query={q} />
+    </a>
+  );
+  const debtChip = debt && (
+    <a className="chip chip-debt" href={href.detail('debts', debt.id)} onClick={(e) => e.stopPropagation()}>
+      <Icon name="handshake" size={12} />
+      {debt.name}
+    </a>
+  );
+  const description = tx.description && (
+    <span className="tx-desc">
+      <Highlight text={tx.description} query={q} />
+    </span>
+  );
 
   return (
-    <div className={`tx-row tx-${dir}`} onClick={() => openTxForm({ id: tx.id })} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && openTxForm({ id: tx.id })}>
-      <span className={`tx-dir dir-${dir}`} title={t(`dir.${dir}`)}>
-        <Icon name={dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap'} size={16} />
-      </span>
+    <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} onClick={() => openTxForm({ id: tx.id })} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && openTxForm({ id: tx.id })}>
+      {picture ? (
+        <span className="tx-pic" title={t(`dir.${dir}`)}>
+          <span className="tx-pic-img">
+            <Avatar image={picture} name={category?.name ?? ''} size={36} />
+          </span>
+          <span className={`tx-pic-dir dir-${dir}`}>
+            <Icon name={dirIcon} size={10} />
+          </span>
+        </span>
+      ) : (
+        <span className={`tx-dir dir-${dir}`} title={t(`dir.${dir}`)}>
+          <Icon name={dirIcon} size={16} />
+        </span>
+      )}
       <div className="tx-main">
-        <div className="tx-parties">
-          <AccountRef ix={ix} account={ix.accounts.get(tx.fromId)} q={q} />
-          <Icon name="chevronRight" size={14} />
-          <AccountRef ix={ix} account={ix.accounts.get(tx.toId)} q={q} />
-        </div>
+        {rich ? (
+          <div className="tx-parties">
+            <PartyChip ix={ix} account={ix.accounts.get(tx.fromId)} q={q} />
+            <Icon name="chevronRight" size={14} />
+            <PartyChip ix={ix} account={ix.accounts.get(tx.toId)} q={q} />
+          </div>
+        ) : (
+          <div className="tx-parties">
+            <AccountRef ix={ix} account={ix.accounts.get(tx.fromId)} q={q} />
+            <Icon name="chevronRight" size={14} />
+            <AccountRef ix={ix} account={ix.accounts.get(tx.toId)} q={q} />
+          </div>
+        )}
         <div className="tx-meta">
           <span className="muted">{i18n.dateTime(tx.date)}</span>
-          {category && (
-            <a className="chip" href={href.detail('categories', category.id)} onClick={(e) => e.stopPropagation()}>
-              <Icon name="tag" size={12} />
-              {parent ? `${parent.name} / ` : ''}
-              <Highlight text={category.name} query={q} />
-            </a>
-          )}
-          {debt && (
-            <a className="chip chip-debt" href={href.detail('debts', debt.id)} onClick={(e) => e.stopPropagation()}>
-              <Icon name="handshake" size={12} />
-              {debt.name}
-            </a>
-          )}
-          {tx.description && (
-            <span className="tx-desc">
-              <Highlight text={tx.description} query={q} />
-            </span>
-          )}
+          {!rich && categoryChip}
+          {!rich && debtChip}
+          {!rich && description}
         </div>
       </div>
+      {/* rich: the category and the note get their own column in the middle, easier to scan */}
+      {rich && (categoryChip || debtChip || description) && (
+        <div className="tx-center">
+          {(categoryChip || debtChip) && (
+            <span className="tx-center-chips">
+              {categoryChip}
+              {debtChip}
+            </span>
+          )}
+          {description}
+        </div>
+      )}
       <div className="tx-amount">
         <span className="tx-value">
           <AssetIcon asset={asset} size={16} />
@@ -144,6 +193,7 @@ export function TxList({
   prefKey,
   resetKey,
   empty,
+  rich = false,
 }: {
   txs: Transaction[];
   side?: Set<string> | null;
@@ -151,6 +201,8 @@ export function TxList({
   prefKey: string;
   resetKey?: unknown;
   empty?: string;
+  /** see TxRow */
+  rich?: boolean;
 }) {
   const { t, month } = useI18n();
   const paged = usePaged(txs, prefKey, resetKey ?? txs.length);
@@ -167,7 +219,7 @@ export function TxList({
           return (
             <div key={tx.id}>
               {head && <div className="tx-month">{head}</div>}
-              <TxRow t={tx} side={side} q={q} />
+              <TxRow t={tx} side={side} q={q} rich={rich} />
             </div>
           );
         })}

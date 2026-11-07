@@ -8,7 +8,7 @@ import { byName, matchRanges, matchesAny } from '../lib/search';
 import type { AssetMap } from '../lib/stats';
 import { readPref, writePref } from '../lib/storage';
 import { useViewState } from './viewState';
-import type { Asset, Contact, FormId } from '../lib/types';
+import type { Account, Asset, Contact, FormId, Service } from '../lib/types';
 
 /** Picture (url / builtin) or, without one, a text symbol, an icon or the first letter on a tinted circle. */
 export function Avatar({
@@ -102,6 +102,18 @@ export function ContactChip({
   );
 }
 
+export const FORM_ICON: Record<FormId, UiIconName> = { cash: 'cash', bank: 'card', crypto: 'crypto' };
+
+/** An account's picture: its service's logo, or the icon of its form of funds on a soft disc. */
+export function AccountIcon({ account, service, size = 22 }: { account: Account; service?: Service; size?: number }) {
+  if (service?.image) return <Avatar image={service.image} name={service.name} size={size} />;
+  return (
+    <span className="avatar account-icon" style={{ width: size, height: size }} aria-hidden="true">
+      <Icon name={FORM_ICON[account.form]} size={Math.round(size * 0.62)} />
+    </span>
+  );
+}
+
 /** Renders text with the parts matching the search query marked. */
 export function Highlight({ text, query = '' }: { text: string; query?: string }) {
   const ranges = matchRanges(text, query);
@@ -165,22 +177,19 @@ export function CardMenu({ actions }: { actions: MenuAction[] }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => !ref.current?.contains(e.target as Node) && setOpen(false);
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [open]);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(open, close, ref, pop);
+  // floats over the page, so a card (with overflow hidden, or under its neighbours) can't cover it
+  const place = useFloating(open, btn, pop, 'right');
+  // a press here is not the start of dragging the card or a click on it
+  const stop = (e: SyntheticEvent) => e.stopPropagation();
 
   return (
-    <div className="menu" ref={ref} onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
+    <div className="menu" ref={ref} onClick={stop} onPointerDown={stop} onMouseDown={stop} onTouchStart={stop} onKeyDown={stop}>
       <button
+        ref={btn}
         type="button"
         className="icon-btn menu-trigger"
         aria-label={t('common.more')}
@@ -192,27 +201,29 @@ export function CardMenu({ actions }: { actions: MenuAction[] }) {
       >
         <Icon name="more" size={18} />
       </button>
-      {open && (
-        <div className="menu-list" role="menu">
-          {actions.map((a) => (
-            <button
-              key={a.label}
-              type="button"
-              role="menuitem"
-              className={a.danger ? 'danger' : ''}
-              disabled={a.disabled}
-              onClick={(e) => {
-                e.preventDefault();
-                setOpen(false);
-                a.onSelect();
-              }}
-            >
-              <Icon name={a.icon} size={16} />
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div ref={pop} className="menu-list menu-pop" role="menu" style={place ? { top: place.top, left: place.left } : { visibility: 'hidden' }}>
+            {actions.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                role="menuitem"
+                className={a.danger ? 'danger' : ''}
+                disabled={a.disabled}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setOpen(false);
+                  a.onSelect();
+                }}
+              >
+                <Icon name={a.icon} size={16} />
+                {a.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -381,8 +392,39 @@ export function useContactOptions(contacts: Contact[]): Option[] {
 }
 
 /** Dropdown with checkboxes and a search box. An empty selection means "all". */
+/**
+ * Places a popover rendered into <body> next to its anchor: under it, or above when there's
+ * no room below; aligned to the anchor's left or right edge and kept inside the window.
+ */
+export function useFloating(open: boolean, anchor: RefObject<HTMLElement | null>, pop: RefObject<HTMLElement | null>, align: 'left' | 'right', width?: (anchorWidth: number) => number, deps: unknown[] = []) {
+  const [place, setPlace] = useState<{ top: number; left: number; width?: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!open) return setPlace(null);
+    const measure = () => {
+      if (!anchor.current) return;
+      const r = anchor.current.getBoundingClientRect();
+      const h = pop.current?.offsetHeight ?? 0;
+      const w = width ? width(r.width) : (pop.current?.offsetWidth ?? 0);
+      const left = Math.max(8, Math.min(align === 'left' ? r.left : r.right - w, innerWidth - w - 8));
+      const below = r.bottom + 4;
+      const top = below + h > innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below;
+      setPlace({ top, left, width: width ? w : undefined });
+    };
+    measure();
+    requestAnimationFrame(measure); // again once the popover has its size
+    addEventListener('resize', measure);
+    addEventListener('scroll', measure, true);
+    return () => {
+      removeEventListener('resize', measure);
+      removeEventListener('scroll', measure, true);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, align, ...deps]);
+  return place;
+}
+
 /** Closes a popover on a pointer press outside its elements or on Escape (which then doesn't reach a modal under it). */
-function useDismiss(open: boolean, close: () => void, ...refs: RefObject<HTMLElement | null>[]) {
+export function useDismiss(open: boolean, close: () => void, ...refs: RefObject<HTMLElement | null>[]) {
   useEffect(() => {
     if (!open) return;
     const outside = (e: Event) => !refs.some((r) => r.current?.contains(e.target as Node)) && close();
@@ -391,10 +433,11 @@ function useDismiss(open: boolean, close: () => void, ...refs: RefObject<HTMLEle
       e.stopPropagation();
       close();
     };
-    document.addEventListener('pointerdown', outside);
+    // capture phase: another menu or card that stops the event must not keep this one open
+    document.addEventListener('pointerdown', outside, true);
     document.addEventListener('keydown', esc, true);
     return () => {
-      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('pointerdown', outside, true);
       document.removeEventListener('keydown', esc, true);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -483,68 +526,42 @@ export function MultiSelect({
   );
 }
 
-/**
- * One choice from a list whose items may have icons. With `label` it is a toolbar filter
- * that looks like MultiSelect; without, a form control that looks like a select.
- */
-export function Picker({
-  value,
-  options,
-  onChange,
-  label,
-  placeholder = '—',
-  disabled = false,
-  searchable = options.length > 8,
-  ariaLabel,
-}: {
-  value: string;
+type PickerProps = {
   options: Option[];
-  onChange: (v: string) => void;
   label?: string;
   placeholder?: string;
   disabled?: boolean;
   searchable?: boolean;
   ariaLabel?: string;
-}) {
+} & ({ multiple?: false; value: string; onChange: (v: string) => void } | { multiple: true; value: string[]; onChange: (v: string[]) => void });
+
+/**
+ * A choice from a list whose items may have icons. With `label` it is a toolbar filter
+ * that looks like MultiSelect; without, a form control that looks like a select.
+ * `multiple` lets several items be ticked; the list then stays open while picking.
+ */
+export function Picker(props: PickerProps) {
+  const { options, label, placeholder = '—', disabled = false, searchable = options.length > 8, ariaLabel } = props;
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
-  const [place, setPlace] = useState<{ top: number; left: number; width: number } | null>(null);
   const close = useCallback(() => {
     setOpen(false);
     setQ('');
   }, []);
   useDismiss(open, close, ref, pop);
+  // the list floats over everything (a modal body would clip it)
+  const place = useFloating(open, btn, pop, 'left', (w) => (label ? Math.max(w, 240) : w), [label, q]);
 
-  // the list floats over everything (a modal body would clip it): under the button, or above when there's no room
-  useLayoutEffect(() => {
-    if (!open) return setPlace(null);
-    const measure = () => {
-      const r = btn.current!.getBoundingClientRect();
-      const h = pop.current?.offsetHeight ?? 0;
-      const width = label ? Math.max(r.width, 240) : r.width;
-      const left = Math.max(8, Math.min(r.left, innerWidth - width - 8));
-      const below = r.bottom + 4;
-      const top = below + h > innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below;
-      setPlace({ top, left, width });
-    };
-    measure();
-    requestAnimationFrame(measure); // again once the list has its height
-    addEventListener('resize', measure);
-    addEventListener('scroll', measure, true);
-    return () => {
-      removeEventListener('resize', measure);
-      removeEventListener('scroll', measure, true);
-    };
-  }, [open, label, q]);
-
-  const current = options.find((o) => o.value === value);
+  const selected = new Set(props.multiple ? props.value : [props.value]);
+  const current = options.filter((o) => selected.has(o.value));
   const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
   const pick = (v: string) => {
-    onChange(v);
+    if (props.multiple) return props.onChange(selected.has(v) ? props.value.filter((x) => x !== v) : [...props.value, v]);
+    props.onChange(v);
     close();
   };
 
@@ -561,10 +578,14 @@ export function Picker({
         aria-label={ariaLabel}
       >
         {label && <span className="multiselect-label">{label}</span>}
-        {current ? (
+        {current.length ? (
           <span className={label ? 'multiselect-value' : 'picker-value'}>
-            {current.icon}
-            <span className="ellipsis">{current.label}</span>
+            {current.map((o) => (
+              <span key={o.value} className="picker-chosen">
+                {o.icon}
+                <span className="ellipsis">{o.label}</span>
+              </span>
+            ))}
           </span>
         ) : (
           <span className="picker-value muted">{placeholder}</span>
@@ -583,17 +604,17 @@ export function Picker({
                 <SearchField value={q} onChange={setQ} placeholder={t('filter.search')} autoFocus />
               </div>
             )}
-            <div className="multiselect-list" role="listbox" aria-label={label ?? ariaLabel}>
+            <div className="multiselect-list" role="listbox" aria-label={label ?? ariaLabel} aria-multiselectable={props.multiple || undefined}>
               {shown.length === 0 && <p className="muted multiselect-empty">{t('filter.noOptions')}</p>}
               {shown.map((o) => (
                 <button
                   key={o.value}
                   type="button"
                   role="option"
-                  aria-selected={o.value === value}
+                  aria-selected={selected.has(o.value)}
                   aria-disabled={o.disabled || undefined}
                   disabled={o.disabled}
-                  className={`multiselect-item picker-item ${o.value === value ? 'active' : ''}`}
+                  className={`multiselect-item picker-item ${selected.has(o.value) ? 'active' : ''}`}
                   onClick={() => pick(o.value)}
                 >
                   {o.icon}
@@ -602,7 +623,7 @@ export function Picker({
                     {o.hint && <small className="muted"> · {o.hint}</small>}
                   </span>
                   {o.badge && <span className="badge badge-accent">{o.badge}</span>}
-                  {o.value === value && <Icon name="check" size={16} />}
+                  {selected.has(o.value) && <Icon name="check" size={16} />}
                 </button>
               ))}
             </div>

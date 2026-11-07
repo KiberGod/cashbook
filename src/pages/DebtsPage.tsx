@@ -1,17 +1,17 @@
-import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Field, Highlight, Money, MultiSelect, type Option, Pagination, Picker, SearchField, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
-import { TxList } from '../components/TxList';
+import { TxBrowser } from '../components/TxBrowser';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { parseAmount } from '../lib/format';
 import { deleteDebt, saveDebt } from '../lib/ops';
 import { matchesAny } from '../lib/search';
-import { getIndex } from '../lib/stats';
-import type { Asset, Contact, Debt } from '../lib/types';
+import { debtEffect, getIndex } from '../lib/stats';
+import type { Asset, Contact, Debt, Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
@@ -198,6 +198,19 @@ export function DebtDetail({ id }: { id: string }) {
   const s = ix.debt.get(id);
   // seen from the creditor's accounts: a repayment is incoming
   const side = useMemo(() => new Set(debt ? (ix.contact.get(debt.creditorId)?.accounts.map((a) => a.id) ?? []) : []), [debt, ix]);
+  // the accounts a debt's money can move between: the debtor's and the creditor's, in the debt's asset
+  const partyAccounts = useMemo(
+    () => (debt ? data.accounts.filter((a) => (a.contactId === debt.debtorId || a.contactId === debt.creditorId) && a.assetIds.includes(debt.assetId)).map((a) => a.id) : []),
+    [debt, data.accounts],
+  );
+  // for a debt "in" is a repayment and "out" adds to it, whichever accounts the money moved between
+  const dirOf = useCallback(
+    (x: Transaction) => {
+      const e = debt ? debtEffect(debt, x, ix.accounts) : 0;
+      return e < 0 ? ('in' as const) : e > 0 ? ('out' as const) : ('other' as const);
+    },
+    [debt, ix],
+  );
   if (!debt || !s) return <NotFound />;
   const asset = ix.assets.get(debt.assetId);
   const debtor = ix.contacts.get(debt.debtorId);
@@ -279,14 +292,17 @@ export function DebtDetail({ id }: { id: string }) {
           </div>
         </section>
       </div>
-      <section className="section">
-        <div className="section-head">
-          <h2>
-            {t('debts.history')} <span className="count">{s.txs.length}</span>
-          </h2>
-        </div>
-        <TxList txs={s.txs} side={side} prefKey="debtTx" resetKey={id} empty={t('debts.noHistory')} />
-      </section>
+      <TxBrowser
+        txs={s.txs}
+        side={side}
+        stateKey={`debt.${id}`}
+        prefKey="debtTx"
+        recipient={false}
+        fromTo={partyAccounts}
+        dirOf={dirOf}
+        dirLabels={{ in: t('debts.repayments'), out: t('debts.additions') }}
+        empty={t('debts.noHistory')}
+      />
       {edit && <DebtEditor debt={debt} onClose={() => setEdit(false)} />}
       {del && <DeleteDebt debt={debt} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('debts'))} />}
     </>
@@ -327,7 +343,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
   const contacts = useContactOptions(data.contacts);
   // "nobody" can be picked to clear a side; the contact chosen on the other side can't be picked here
   const partyOptions = (other: string): Option[] => [
-    { value: '', label: t('debts.noParty') },
+    { value: '', label: t('common.absent') },
     ...contacts.map((o) => (o.value === other ? { ...o, disabled: true } : o)),
   ];
   const assets: Option[] = data.assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={22} /> }));
@@ -372,7 +388,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
         {/* one grid for both rows, so the asset and the amount sit exactly under the parties */}
         <div className="form-grid form-grid-swap">
           <Field label={t('debts.debtor')} error={err('parties')} group>
-            <Picker value={debtorId} onChange={setDebtorId} options={partyOptions(creditorId)} placeholder={t('debts.noParty')} disabled={locked} ariaLabel={t('debts.debtor')} />
+            <Picker value={debtorId} onChange={setDebtorId} options={partyOptions(creditorId)} placeholder={t('common.absent')} disabled={locked} ariaLabel={t('debts.debtor')} />
           </Field>
           {locked ? (
             <span className="swap-spacer" />
@@ -388,7 +404,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
             </div>
           )}
           <Field label={t('debts.creditor')} group>
-            <Picker value={creditorId} onChange={setCreditorId} options={partyOptions(debtorId)} placeholder={t('debts.noParty')} disabled={locked} ariaLabel={t('debts.creditor')} />
+            <Picker value={creditorId} onChange={setCreditorId} options={partyOptions(debtorId)} placeholder={t('common.absent')} disabled={locked} ariaLabel={t('debts.creditor')} />
           </Field>
           <Field label={t('debts.asset')} error={err('asset')} group>
             <Picker value={assetId} onChange={setAssetId} options={assets} disabled={locked} ariaLabel={t('debts.asset')} />
