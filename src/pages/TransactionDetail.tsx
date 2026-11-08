@@ -7,7 +7,8 @@ import { useI18n } from '../i18n';
 import { ownAccountIds } from '../lib/analytics';
 import { debtEffect, getIndex, type Index } from '../lib/stats';
 import type { Account } from '../lib/types';
-import { goBack, href } from '../router';
+import { href } from '../router';
+import { useTabNav } from '../components/Tabs';
 import { useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
@@ -49,11 +50,12 @@ export function TransactionDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   const own = useMemo(() => ownAccountIds(ix), [ix]);
 
-  // deleted while open (e.g. from its editor): leave the page instead of showing "not found"
+  // deleted while open (e.g. from its editor, or in another tab): this tab leaves the page instead of showing "not found"
+  const nav = useTabNav();
   const seen = useRef(!!tx);
   useEffect(() => {
     if (tx) seen.current = true;
-    else if (seen.current) goBack(href.transactions());
+    else if (seen.current) nav.back(href.transactions());
   }, [tx]);
   if (!tx) return <NotFound />;
 

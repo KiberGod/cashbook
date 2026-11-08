@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
 import type { DictKey } from '../i18n/en';
@@ -6,6 +7,7 @@ import { APP_VERSION } from '../lib/version';
 import { href, type Route } from '../router';
 import { discardAndReload, flush, reload, signIn, useStore } from '../store/store';
 import { openTxForm, useUi } from '../store/ui';
+import { TabStrip } from './Tabs';
 
 export function Logo({ size = 32 }: { size?: number }) {
   return (
@@ -35,13 +37,7 @@ function SyncIndicator({ refreshing }: { refreshing: boolean }) {
   const label = t(`sync.${sync}` as DictKey);
   return (
     <span className={`sync sync-${sync}`} aria-label={label} role="status">
-      {sync === 'saving' || refreshing ? (
-        <span className="spinner" />
-      ) : sync === 'error' ? (
-        <Icon name="alert" size={18} />
-      ) : (
-        <span className="sync-dot" />
-      )}
+      {sync === 'saving' || refreshing ? <span className="spinner" /> : sync === 'error' ? <Icon name="alert" size={18} /> : <span className="sync-dot" />}
     </span>
   );
 }
@@ -91,10 +87,29 @@ function NavLinks({ route, onPick }: { route: Route; onPick?: () => void }) {
   );
 }
 
+/** The connected spreadsheet: its name and sync state; a click re-reads it. */
+function SheetStatus() {
+  const { t } = useI18n();
+  const title = useStore((s) => s.title);
+  const refreshing = useStore((s) => s.refreshing);
+  return (
+    <button
+      type="button"
+      className="sheet-status"
+      onClick={() => void reload()}
+      disabled={refreshing}
+      title={title ? `${title} · ${t('refresh')}` : t('refresh')}
+      aria-label={`${t('refresh')}: ${title}`}
+    >
+      <SheetsMark />
+      {title && <span className="sheet-status-name">{title}</span>}
+      <SyncIndicator refreshing={refreshing} />
+    </button>
+  );
+}
+
 export function Sidebar({ route }: { route: Route }) {
   const { t } = useI18n();
-  const encrypted = useStore((s) => s.encrypted);
-  const title = useStore((s) => s.title);
   return (
     <aside className="sidebar">
       <a className="brand" href={href.dashboard()}>
@@ -108,18 +123,17 @@ export function Sidebar({ route }: { route: Route }) {
       <nav className="side-nav">
         <NavLinks route={route} />
       </nav>
-      <div className="sidebar-foot" title={title}>
-        <Icon name={encrypted ? 'lock' : 'unlock'} size={14} />
-        <span>{encrypted ? t('enc.on') : t('enc.off')}</span>
+      {/* the connected spreadsheet: its name and sync state; a click re-reads it */}
+      <div className="sidebar-foot">
+        <SheetStatus />
       </div>
     </aside>
   );
 }
 
+/** The top bar: the tabs, like a browser's (on a phone also the menu and "add a transaction"). */
 export function TopBar({ route }: { route: Route }) {
   const { t } = useI18n();
-  const title = useStore((s) => s.title);
-  const refreshing = useStore((s) => s.refreshing);
   const [drawer, setDrawer] = useState(false);
   useEffect(() => setDrawer(false), [route]);
 
@@ -128,45 +142,34 @@ export function TopBar({ route }: { route: Route }) {
       <button type="button" className="icon-btn mobile-only" onClick={() => setDrawer(true)} aria-label={t('nav.menu')}>
         <Icon name="menu" />
       </button>
-      <a className="brand mobile-only" href={href.dashboard()}>
-        <Logo size={28} />
-        <span>Cashbook</span>
-      </a>
-      <div className="topbar-actions">
-        <button
-          type="button"
-          className="sheet-status"
-          onClick={() => void reload()}
-          disabled={refreshing}
-          title={t('refresh')}
-          aria-label={`${t('refresh')}: ${title}`}
-        >
-          <SheetsMark />
-          {title && <span className="sheet-status-name">{title}</span>}
-          <SyncIndicator refreshing={refreshing} />
-        </button>
-        <button type="button" className="btn btn-primary btn-sm mobile-only" onClick={() => openTxForm()} aria-label={t('tx.add')}>
-          <Icon name="plus" size={18} />
-        </button>
-      </div>
-      {drawer && (
-        <div className="drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setDrawer(false)}>
-          <div className="drawer">
-            <div className="drawer-head">
-              <a className="brand" href={href.dashboard()}>
-                <Logo size={28} />
-                <span>Cashbook</span>
-              </a>
-              <button type="button" className="icon-btn" onClick={() => setDrawer(false)} aria-label={t('common.close')}>
-                <Icon name="close" />
-              </button>
+      <TabStrip />
+      <button type="button" className="btn btn-primary btn-sm mobile-only topbar-add" onClick={() => openTxForm()} aria-label={t('tx.add')}>
+        <Icon name="plus" size={18} />
+      </button>
+      {/* in a portal: the top bar's blur would otherwise make it the drawer's frame */}
+      {drawer &&
+        createPortal(
+          <div className="drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setDrawer(false)}>
+            <div className="drawer">
+              <div className="drawer-head">
+                <a className="brand" href={href.dashboard()}>
+                  <Logo size={28} />
+                  <span>Cashbook</span>
+                </a>
+                <button type="button" className="icon-btn" onClick={() => setDrawer(false)} aria-label={t('common.close')}>
+                  <Icon name="close" />
+                </button>
+              </div>
+              <nav className="side-nav">
+                <NavLinks route={route} onPick={() => setDrawer(false)} />
+              </nav>
+              <div className="sidebar-foot">
+                <SheetStatus />
+              </div>
             </div>
-            <nav className="side-nav">
-              <NavLinks route={route} onPick={() => setDrawer(false)} />
-            </nav>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type FormEvent, type 
 import { AccountIcon, AssetAmounts, FORM_ICON, Segmented, AssetIcon, Avatar, CardMenu, ContactChip, CopyButton, EmptyState, Field, FormBadge, Highlight, MultiSelect, type Option, Pagination, Picker, SearchField, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTab, useTabNav } from '../components/Tabs';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -272,6 +273,8 @@ const PAGE_TABS = ['overview', 'stats', 'activity'] as const;
 type PageTab = (typeof PAGE_TABS)[number];
 
 export function AccountDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
+  const myTab = useTab();
   const i18n = useI18n();
   const { t, num } = i18n;
   const data = useStore((s) => s.data);
@@ -283,12 +286,12 @@ export function AccountDetail({ id }: { id: string }) {
   // the page's sections: what the account is / its numbers / its transactions. Opening an account
   // starts on the overview; the open tab is kept in the address (?tab=), so Back returns to it
   const [pageTab, setPageTabState] = useState<PageTab>(() => {
-    const tab = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tab');
+    const tab = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
     return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
   });
   const setPageTab = (tab: PageTab) => {
     setPageTabState(tab);
-    history.replaceState(history.state, '', href.detail('accounts', id) + (tab === 'overview' ? '' : `?tab=${tab}`));
+    tabNav.navigate(href.detail('accounts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
   };
   const side = useMemo(() => new Set([id]), [id]);
   const s = ix.account.get(id);
@@ -481,7 +484,7 @@ export function AccountDetail({ id }: { id: string }) {
       )}
       {edit && <AccountEditor account={account} onClose={() => setEdit(false)} />}
       {adjust && <BalanceAdjustment account={account} onClose={() => setAdjust(false)} />}
-      {del && <DeleteAccount account={account} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('accounts'))} />}
+      {del && <DeleteAccount account={account} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('accounts'), { replace: true })} />}
     </>
   );
 }

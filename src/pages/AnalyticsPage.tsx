@@ -32,7 +32,8 @@ import {
 import { entries, money, toDateInput } from '../lib/format';
 import { add, getIndex, round, type AssetMap, type Index } from '../lib/stats';
 import type { Asset, Transaction } from '../lib/types';
-import { href, navigate } from '../router';
+import { href } from '../router';
+import { openLink } from '../store/tabs';
 import { useStore } from '../store/store';
 import { DebtRow } from './DebtsPage';
 
@@ -231,7 +232,7 @@ function Overview({ c }: { c: Ctx }) {
             slices={cats.map((r) => ({ key: r.id || '__none', label: r.id ? (c.ix.categories.get(r.id)?.name ?? '?') : t('tx.noCategory'), value: r.amount }))}
             asset={c.asset}
             otherLabel={t('analytics.other')}
-            onPick={(k) => k !== '__none' && navigate(href.detail('categories', k))}
+            onPick={(k) => k !== '__none' && openLink(href.detail('categories', k))}
           />
         </ChartCard>
         <ChartCard title={t('analytics.topParties')}>
@@ -344,7 +345,7 @@ function Categories({ c }: { c: Ctx }) {
             slices={rows.map((r) => ({ key: r.id || '__none', label: name(r.id), value: r.amount }))}
             asset={c.asset}
             otherLabel={t('analytics.other')}
-            onPick={(k) => k !== '__none' && navigate(href.detail('categories', k))}
+            onPick={(k) => k !== '__none' && openLink(href.detail('categories', k))}
           />
         </ChartCard>
         <section className="panel">

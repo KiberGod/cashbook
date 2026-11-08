@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Avatar, CardMenu, EmptyState, Field, Highlight, LinkList, SearchField } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -288,6 +289,7 @@ function ChildRow({ category: c, query, sortable, txs, menu }: { category: Categ
 }
 
 export function CategoryDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
@@ -363,7 +365,7 @@ export function CategoryDetail({ id }: { id: string }) {
         </section>
       </div>
       {edit && <CategoryEditor category={edit.category} parentId={edit.parentId} onClose={() => setEdit(null)} />}
-      {del && <DeleteCategory category={category} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('categories'))} />}
+      {del && <DeleteCategory category={category} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('categories'), { replace: true })} />}
     </>
   );
 }

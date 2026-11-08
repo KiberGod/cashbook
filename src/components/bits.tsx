@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type SyntheticEvent, type TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
+import { openLink } from '../store/tabs';
 import { resolveImage } from '../icons/builtin';
 import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -88,10 +89,10 @@ export function ContactChip({
     const go = (e: SyntheticEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      location.hash = href;
+      openLink(href);
     };
     return (
-      <span className={cls} role="link" tabIndex={0} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go(e)}>
+      <span className={cls} role="link" tabIndex={0} data-href={href} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go(e)}>
         {inner}
       </span>
     );

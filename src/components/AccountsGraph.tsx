@@ -435,9 +435,11 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
   const stepRef = useRef(step);
   stepRef.current = step;
 
-  const fit = (animate = false) => {
+  /** Fits everything in view; false when it cannot be done yet (no accounts, or a hidden tab) */
+  const fit = (animate = false): boolean => {
     const list = [...bodies.current.values()];
-    if (!list.length) return;
+    // in a tab that is not shown the box has no size: fit once it is shown
+    if (!list.length || !box.current?.clientWidth) return false;
     const xs = list.map((b) => b.x);
     const ys = list.map((b) => b.y);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -449,6 +451,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
     view.current = { k, x: -((x0 + x1) / 2) * k, y: -((y0 + y1) / 2) * k - below / 2 };
     if (!animate) applyRef.current();
     setStoredView(view.current);
+    return true;
   };
   const fitRef = useRef(fit);
   fitRef.current = fit;
@@ -552,10 +555,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
         // settled: stop for good (nothing keeps creeping)
         if (!dragging && alpha.current < 0.1 && speed < REST_SPEED) alpha.current = 0;
         // once it has mostly settled, the first time: everything in view
-        if (autoFit.current && alpha.current < 0.08) {
-          autoFit.current = false;
-          fitRef.current();
-        }
+        if (autoFit.current && alpha.current < 0.08 && fitRef.current()) autoFit.current = false;
         // remember where things are for the next visit
         const memory = placed.get(stateKey);
         if (memory) for (const [id, b] of bodies.current) memory.set(id, { x: b.x, y: b.y });
@@ -567,6 +567,10 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
     return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sig, own, stateKey, targets]);
+  // settled while its tab was hidden: fit it in as soon as it gets a size
+  useEffect(() => {
+    if (autoFit.current && alpha.current < 0.08 && fitRef.current()) autoFit.current = false;
+  }, [size]);
   // after every render (focus, size, new nodes): put things where they are
   useLayoutEffect(() => applyRef.current());
 

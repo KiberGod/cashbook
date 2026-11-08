@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { Icon } from '../icons/ui';
@@ -97,6 +98,7 @@ export function AssetsPage() {
 }
 
 export function AssetDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
   const { t, tn, num } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
@@ -199,7 +201,7 @@ export function AssetDetail({ id }: { id: string }) {
         </div>
       </div>
       {edit && <AssetEditor asset={asset} onClose={() => setEdit(false)} />}
-      {del && <DeleteAsset asset={asset} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('assets'))} />}
+      {del && <DeleteAsset asset={asset} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('assets'), { replace: true })} />}
     </>
   );
 }

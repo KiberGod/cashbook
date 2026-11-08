@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
+import { useTab } from './Tabs';
 
 interface ModalProps {
   title: string;
@@ -21,27 +22,36 @@ export function Modal({ title, onClose, children, footer, size = 'md', focusFiel
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
+  // a dialog of a tab that is not shown stays as it is (typed text and all), out of sight and inert
+  const { active } = useTab();
+
   useEffect(() => {
     const prevFocus = document.activeElement as HTMLElement | null;
+    // focus the first field, or the panel itself
+    const first = focusField ? panel.current?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select') : null;
+    (first ?? panel.current)?.focus();
+    return () => prevFocus?.focus?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
     const onKey = (e: KeyboardEvent) => {
-      // only the top-most modal reacts
-      const all = document.querySelectorAll('.modal');
+      // only the top-most shown modal reacts
+      const all = document.querySelectorAll('.modal-backdrop:not([hidden]) .modal');
       if (e.key === 'Escape' && all[all.length - 1] === panel.current) closeRef.current();
     };
     document.addEventListener('keydown', onKey);
     document.body.classList.add('no-scroll');
-    // focus the first field, or the panel itself
-    const first = focusField ? panel.current?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]), textarea, select') : null;
-    (first ?? panel.current)?.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
-      if (document.querySelectorAll('.modal').length <= 1) document.body.classList.remove('no-scroll');
-      prevFocus?.focus?.();
+      // the page scrolls again once no other shown modal is left
+      if (document.querySelectorAll('.modal-backdrop:not([hidden]) .modal').length <= 1) document.body.classList.remove('no-scroll');
     };
-  }, []);
+  }, [active]);
 
   return createPortal(
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" hidden={!active} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
         <div className="modal-head">
           <h2>{title}</h2>

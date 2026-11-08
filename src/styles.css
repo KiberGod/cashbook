@@ -365,25 +365,29 @@ mark.hl {
   margin-top: auto;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  font-size: 0.8rem;
-  color: var(--muted);
+  min-width: 0;
+  padding-top: 6px;
+}
+
+/* the spreadsheet, at the bottom of the sidebar (and the phone's menu) */
+.sidebar-foot .sheet-status {
+  width: 100%;
+  max-width: none;
 }
 
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 30;
+  /* above the dialogs: a dialog belongs to its tab, the tabs stay at hand */
+  z-index: 60;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
-  height: 56px;
-  padding: 0 16px;
+  height: 48px;
+  padding: 0 12px;
   padding-top: env(safe-area-inset-top);
-  background: color-mix(in srgb, var(--bg) 85%, transparent);
-  backdrop-filter: saturate(1.4) blur(10px);
-  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  /* the tab strip: a shade off the page, so the shown tab (the page's colour) stands out of it */
+  background: color-mix(in srgb, var(--text) 8%, var(--bg));
   border-bottom: 1px solid var(--border);
 }
 
@@ -470,7 +474,7 @@ mark.hl {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 55;
+  z-index: 65; /* over the top bar */
   background: rgb(10 14 18 / 45%);
   animation: fade-in 0.15s ease-out;
 }
@@ -6416,4 +6420,209 @@ a.txd-account:hover {
   .ag-node {
     transition: none;
   }
+}
+
+/* ---------- tabs, like a browser's ---------- */
+
+/* every open tab is mounted; the hidden ones are out of sight (and so are their dialogs) */
+.tab-pane[hidden],
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.tab-strip-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  align-self: stretch;
+}
+
+.tab-strip {
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding-top: 8px;
+}
+
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  flex: 0 1 auto;
+  width: 200px;
+  min-width: 96px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 6px 0 12px;
+  /* every tab shows its outline: a light card on the strip; the shown one is the page itself */
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x;
+}
+
+/* side by side, sharing one border line */
+.tab + .tab {
+  margin-left: -1px;
+}
+
+.tab:hover {
+  z-index: 1;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border-color: color-mix(in srgb, var(--text) 22%, transparent);
+  color: var(--text);
+}
+
+/* the shown tab: of a piece with the page under it */
+.tab.active {
+  z-index: 2;
+  background: var(--bg);
+  border-color: var(--border);
+  box-shadow: 0 -1px 4px rgb(0 0 0 / 6%);
+  color: var(--text);
+  margin-bottom: -1px;
+  height: 37px;
+}
+
+.tab.active > svg:first-child {
+  color: var(--accent);
+}
+
+.tab.dragging {
+  z-index: 3;
+  opacity: 0.85;
+  box-shadow: var(--shadow-lg);
+  cursor: grabbing;
+}
+
+.tab > svg:first-child {
+  flex-shrink: 0;
+}
+
+/* a contact's picture in its tab, in place of the section icon */
+.tab-pic {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.tab-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.tab-close:hover {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  color: var(--text);
+  opacity: 1;
+}
+
+.tab-new {
+  flex-shrink: 0;
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  margin-top: 6px;
+}
+
+/* the miniature of a tab's page */
+.tab-preview {
+  position: fixed;
+  z-index: 120;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
+}
+
+.tab-preview-title {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-preview-shot {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.tab-preview-shot > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+/* the right-click menu of links and tabs */
+.ctx-menu {
+  min-width: 220px;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    align-items: center;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  /* the strip scrolls with a finger: the tabs keep enough room for a readable name */
+  .tab {
+    width: 150px;
+    min-width: 116px;
+  }
+
+  .tab-close {
+    opacity: 1;
+  }
+
+  .topbar-add {
+    flex-shrink: 0;
+  }
+}
+
+/* in the app the dimming covers everything but the tab strip (it stays over it), and the dialog
+   itself keeps below the strip */
+body:has(.topbar) .modal-backdrop {
+  padding-top: calc(48px + 16px + env(safe-area-inset-top));
 }

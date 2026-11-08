@@ -4,7 +4,8 @@ import { useI18n } from '../i18n';
 import { deleteTransaction } from '../lib/ops';
 import { getIndex, type Index } from '../lib/stats';
 import type { Account, Transaction } from '../lib/types';
-import { href, navigate } from '../router';
+import { href } from '../router';
+import { openLink } from '../store/tabs';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Highlight, Money, Pagination, usePaged } from './bits';
@@ -94,7 +95,7 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
   );
 
   return (
-    <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} onClick={() => navigate(href.transaction(tx.id))} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && navigate(href.transaction(tx.id))}>
+    <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} data-href={href.transaction(tx.id)} onClick={() => openLink(href.transaction(tx.id))} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && openLink(href.transaction(tx.id))}>
       {picture ? (
         <span className="tx-pic" title={t(`dir.${dir}`)}>
           <span className="tx-pic-img">

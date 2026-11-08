@@ -7,7 +7,8 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { buckets, byCategory, cashflow, mainAsset, ownAccountIds, periodRange, totals } from '../lib/analytics';
 import { add, getIndex, sortAccountsForPicker, type AssetMap } from '../lib/stats';
-import { href, navigate } from '../router';
+import { href } from '../router';
+import { openLink } from '../store/tabs';
 import { useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { AccountRow } from './AccountsPage';
@@ -114,7 +115,7 @@ export function DashboardPage() {
             slices={cats.map((r) => ({ key: r.id || '__none', label: r.id ? (ix.categories.get(r.id)?.name ?? '?') : t('tx.noCategory'), value: r.amount }))}
             asset={asset}
             otherLabel={t('analytics.other')}
-            onPick={(k) => k !== '__none' && navigate(href.detail('categories', k))}
+            onPick={(k) => k !== '__none' && openLink(href.detail('categories', k))}
           />
         </ChartCard>
       </div>

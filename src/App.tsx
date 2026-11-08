@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo } from 'react';
 import { Footer, Sidebar, SyncBanner, Toasts, TopBar } from './components/Layout';
+import { LinkMenu, TabProvider } from './components/Tabs';
 import { TemplateFormHost, TxFormHost } from './components/TxForm';
 import { AccountDetail, AccountsPage } from './pages/AccountsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -14,8 +15,11 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { TransactionDetail } from './pages/TransactionDetail';
 import { TransactionsPage } from './pages/TransactionsPage';
-import { parseHash, useHash, type Route } from './router';
+import { useI18n } from './i18n';
+import { parseHash, type Route } from './router';
 import { useStore } from './store/store';
+import { setTabLimitNotice, tabHash, takePendingScroll, useTabs, type Tab } from './store/tabs';
+import { showToast } from './store/ui';
 
 const LISTS = {
   assets: AssetsPage,
@@ -59,22 +63,34 @@ function Page({ route }: { route: Route }) {
   }
 }
 
-export function App() {
-  const phase = useStore((s) => s.phase);
-  const error = useStore((s) => s.error);
-  const hash = useHash();
-  const route = parseHash(hash);
+/**
+ * One tab's page. Every open tab stays mounted (the hidden ones out of sight), so it keeps its
+ * filters, typed text and dialogs; it re-renders only when its own page or its visibility changes
+ * (and, like every page, when the data does).
+ */
+const TabPane = memo(function TabPane({ tab, active }: { tab: Tab; active: boolean }) {
+  const hash = tabHash(tab);
+  const value = useMemo(() => ({ id: tab.id, hash, active }), [tab.id, hash, active]);
+  return (
+    <div className="tab-pane" data-tab={tab.id} hidden={!active}>
+      <TabProvider value={value}>
+        <Page route={parseHash(hash)} />
+      </TabProvider>
+    </div>
+  );
+});
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [hash.split('?')[0]]);
+function Shell() {
+  const { t } = useI18n();
+  const { tabs, active } = useTabs();
+  const route = parseHash(tabHash(tabs.find((x) => x.id === active) ?? tabs[0]));
 
-  if (phase === 'loading') return <LoadingScreen />;
-  if (phase === 'connect') return <ConnectScreen />;
-  if (phase === 'auth') return <AuthScreen />;
-  if (phase === 'setup') return <SetupScreen />;
-  if (phase === 'unlock') return <UnlockScreen />;
-  if (phase === 'error' && error) return <ErrorScreen error={error} />;
+  useEffect(() => setTabLimitNotice(() => showToast(t('tabs.limit'))), [t]);
+  // a tab shown again goes back to where it was scrolled; a new page starts at the top
+  useLayoutEffect(() => {
+    const y = takePendingScroll();
+    if (y !== null) window.scrollTo(0, y);
+  });
 
   return (
     <div className="app">
@@ -83,13 +99,29 @@ export function App() {
         <TopBar route={route} />
         <main className="main">
           <SyncBanner />
-          <Page route={route} />
+          {tabs.map((tab) => (
+            <TabPane key={tab.id} tab={tab} active={tab.id === active} />
+          ))}
         </main>
         <Footer />
       </div>
       <TxFormHost />
       <TemplateFormHost />
+      <LinkMenu />
       <Toasts />
     </div>
   );
+}
+
+export function App() {
+  const phase = useStore((s) => s.phase);
+  const error = useStore((s) => s.error);
+
+  if (phase === 'loading') return <LoadingScreen />;
+  if (phase === 'connect') return <ConnectScreen />;
+  if (phase === 'auth') return <AuthScreen />;
+  if (phase === 'setup') return <SetupScreen />;
+  if (phase === 'unlock') return <UnlockScreen />;
+  if (phase === 'error' && error) return <ErrorScreen error={error} />;
+  return <Shell />;
 }

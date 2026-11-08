@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AssetAmounts, Avatar, CardMenu, EmptyState, Highlight, LinkList, Pagination, SearchField, Stat, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTab, useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
@@ -96,6 +97,8 @@ const PAGE_TABS = ['overview', 'accounts', 'debts', 'activity'] as const;
 type PageTab = (typeof PAGE_TABS)[number];
 
 export function ContactDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
+  const myTab = useTab();
   const i18n = useI18n();
   const { t, num, locale } = i18n;
   const data = useStore((s) => s.data);
@@ -109,12 +112,12 @@ export function ContactDetail({ id }: { id: string }) {
   const side = useMemo(() => new Set(s?.accounts.map((a) => a.id) ?? []), [s]);
   // the page's sections; the open tab is kept in the address (?tab=), so Back returns to it
   const [pageTab, setPageTabState] = useState<PageTab>(() => {
-    const tab = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tab');
+    const tab = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
     return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
   });
   const setPageTab = (tab: PageTab) => {
     setPageTabState(tab);
-    history.replaceState(history.state, '', href.detail('contacts', id) + (tab === 'overview' ? '' : `?tab=${tab}`));
+    tabNav.navigate(href.detail('contacts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
   };
 
   if (!contact || !s) return <NotFound />;
@@ -228,7 +231,7 @@ export function ContactDetail({ id }: { id: string }) {
       )}
 
       {edit && <ContactEditor contact={contact} onClose={() => setEdit(false)} />}
-      {del && <DeleteContact contact={contact} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('contacts'))} />}
+      {del && <DeleteContact contact={contact} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('contacts'), { replace: true })} />}
       {addAccount && <AccountEditor account={null} contactId={id} onClose={() => setAddAccount(false)} />}
       {addDebt && <DebtEditor debt={null} contactId={id} onClose={() => setAddDebt(false)} />}
     </>

@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { AssetAmounts, AssetIcon, Avatar, CardMenu, EmptyState, FormBadge, Highlight, LinkList, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { ConfirmDialog, Modal } from '../components/Modal';
@@ -142,6 +143,7 @@ function ServiceCard({
 }
 
 export function ServiceDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
@@ -237,7 +239,7 @@ export function ServiceDetail({ id }: { id: string }) {
         </section>
       </div>
       {edit && <ServiceEditor service={service} onClose={() => setEdit(false)} />}
-      {del && <DeleteService service={service} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('services'))} />}
+      {del && <DeleteService service={service} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('services'), { replace: true })} />}
     </>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type FormEvent
 import { AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Field, Highlight, Money, MultiSelect, type Option, Pagination, Picker, SearchField, useContactOptions, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
+import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
@@ -189,6 +190,7 @@ export function DebtsPage() {
 }
 
 export function DebtDetail({ id }: { id: string }) {
+  const tabNav = useTabNav();
   const i18n = useI18n();
   const { t } = i18n;
   const data = useStore((s) => s.data);
@@ -306,7 +308,7 @@ export function DebtDetail({ id }: { id: string }) {
         empty={t('debts.noHistory')}
       />
       {edit && <DebtEditor debt={debt} onClose={() => setEdit(false)} />}
-      {del && <DeleteDebt debt={debt} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('debts'))} />}
+      {del && <DeleteDebt debt={debt} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('debts'), { replace: true })} />}
     </>
   );
 }
