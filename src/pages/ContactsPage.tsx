@@ -6,6 +6,7 @@ import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
 import { AccountsHistory } from '../components/BalanceHistory';
+import { AccountsGraph } from '../components/AccountsGraph';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteContact, saveContact } from '../lib/ops';
@@ -203,8 +204,12 @@ export function ContactDetail({ id }: { id: string }) {
           {accounts.length === 0 ? (
             <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
           ) : (
-            // the accounts' balances over time, with the accounts right under it
-            <AccountsHistory accounts={accounts} stateKey={`contact.${id}`} />
+            <>
+              {/* the accounts' balances over time, with the accounts right under it */}
+              <AccountsHistory accounts={accounts} stateKey={`contact.${id}`} />
+              {/* who they had transactions with */}
+              <AccountsGraph accounts={accounts} stateKey={`contact.${id}`} />
+            </>
           )}
         </section>
       )}

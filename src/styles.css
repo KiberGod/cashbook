@@ -5910,12 +5910,12 @@ a.txd-account:hover {
   color: #fff;
 }
 
-/* "?" at the end of the tools (the ± buttons' size): the controls, on hover or a click */
-.bh-help {
+/* a "?" with the controls (the ± buttons' size), on hover or a click */
+.help {
   position: relative;
 }
 
-.bh-help-btn.icon-btn {
+.help-btn.icon-btn {
   width: 32px;
   height: 32px;
   border: 1px solid var(--border);
@@ -5925,13 +5925,13 @@ a.txd-account:hover {
   cursor: help;
 }
 
-.bh-help-btn:hover,
-.bh-help-btn[aria-expanded='true'] {
+.help-btn:hover,
+.help-btn[aria-expanded='true'] {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.bh-help-pop {
+.help-pop {
   position: absolute;
   z-index: 40;
   top: calc(100% + 6px);
@@ -5947,23 +5947,23 @@ a.txd-account:hover {
 }
 
 /* one grid for all the rows, so the actions start in one column */
-.bh-help-pop dl {
+.help-pop dl {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 5px 12px;
   margin: 0;
 }
 
-.bh-help-pop dl > div {
+.help-pop dl > div {
   display: contents;
 }
 
-.bh-help-pop dt {
+.help-pop dt {
   font-weight: 600;
   white-space: nowrap;
 }
 
-.bh-help-pop dd {
+.help-pop dd {
   margin: 0;
   color: var(--muted);
 }
@@ -5978,11 +5978,16 @@ a.txd-account:hover {
     order: 1;
   }
 
-  .bh-help {
+  /* a chart's tools: its "?" list spans the whole row of tools */
+  .chart-tools {
+    position: relative;
+  }
+
+  .chart-tools .help {
     position: static;
   }
 
-  .bh-help-pop {
+  .chart-tools .help-pop {
     left: 0;
     right: 0;
     width: auto;
@@ -6054,6 +6059,361 @@ a.txd-account:hover {
 @media (prefers-reduced-motion: reduce) {
   .switch-track,
   .switch-thumb {
+    transition: none;
+  }
+}
+
+/* ---------- account links: a graph that moves on its own ---------- */
+
+.ag {
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.ag-box {
+  position: relative;
+  height: 520px;
+  overflow: hidden;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle, var(--chart-grid) 1px, transparent 1.2px) 0 0 / 22px 22px,
+    var(--surface);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ag-box:active {
+  cursor: grabbing;
+}
+
+@media (max-width: 720px) {
+  .ag-box {
+    height: 420px;
+  }
+}
+
+/* everything in world coordinates; the world itself is moved and scaled */
+.ag-world {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.ag-links {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+}
+
+.ag-link {
+  stroke: var(--chart-axis);
+  stroke-linecap: round;
+  transition: stroke 0.15s;
+}
+
+/* between two of the contact's own accounts */
+.ag-link.inner {
+  stroke: var(--accent);
+}
+
+.ag-focus .ag-link:not(.on) {
+  stroke-opacity: 0.08 !important;
+}
+
+.ag-link.on {
+  stroke: var(--accent);
+}
+
+.ag-node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transition: opacity 0.15s;
+}
+
+/* the picture is centred on the body's point, the name under it */
+.ag-node-pic {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.ag-node-pic > * {
+  border-radius: 50%;
+}
+
+/* the owner's picture on the account's lower right edge ("?" when it has no contact) */
+.ag-node-pic > .ag-node-owner {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--surface);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ag-node.own .ag-node-pic > .ag-node-owner {
+  right: -6px;
+  bottom: -6px;
+  width: 22px;
+  height: 22px;
+}
+
+.ag-node-owner.none {
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+.ag-node.own .ag-node-owner.none {
+  font-size: 0.72rem;
+}
+
+/* the contact's own accounts: bigger, in the accent with a glow */
+.ag-node.own .ag-node-pic {
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--accent);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.ag-node-label {
+  position: absolute;
+  left: 0;
+  top: 21px;
+  transform: translateX(-50%);
+  max-width: 130px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.ag-node.own .ag-node-label {
+  top: 28px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.ag-node:hover .ag-node-pic,
+.ag-node.focused .ag-node-pic {
+  border-color: var(--accent);
+}
+
+.ag-node.dim {
+  opacity: 0.2;
+}
+
+/* zoomed far out: only the contact's own accounts keep their names */
+.ag-far .ag-node:not(.own):not(.focused) .ag-node-label {
+  display: none;
+}
+
+.ag-legend {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  max-width: calc(100% - 20px);
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  color: var(--muted);
+  font-size: 0.74rem;
+  pointer-events: none;
+}
+
+.ag-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ag-legend-own,
+.ag-legend-other {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+}
+
+.ag-legend-own {
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* the transactions running along the links: the contact's own ones glow in the accent,
+   the others' are small neutral beads */
+.ag-dots {
+  pointer-events: none;
+}
+
+.ag-dot.own {
+  fill: var(--accent);
+  stroke: var(--accent-soft);
+  stroke-width: 2.5;
+  paint-order: stroke;
+}
+
+.ag-dot.other {
+  fill: var(--surface);
+  stroke: var(--text);
+  stroke-width: 1.4;
+  stroke-opacity: 0.7;
+}
+
+.ag-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.ag-legend-dot.own {
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.ag-legend-dot.other {
+  background: var(--surface);
+  border: 1.5px solid color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+.ag-legend-link {
+  width: 22px;
+  height: 0;
+  border-top: 4px solid var(--chart-axis);
+  border-radius: 2px;
+}
+
+/* an account's card next to it */
+.ag-card {
+  position: absolute;
+  z-index: 3;
+  width: 260px;
+  max-width: calc(100% - 12px);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  font-size: 0.84rem;
+  cursor: auto;
+  pointer-events: none;
+}
+
+.ag-card.pinned {
+  pointer-events: auto;
+  border-color: var(--accent);
+}
+
+.ag-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ag-card-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.ag-card-title a {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-card-close.icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.ag-card .badge {
+  align-self: flex-start;
+}
+
+.ag-card-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ag-card-row > :first-child {
+  flex-shrink: 0;
+}
+
+.ag-card-row > :last-child {
+  min-width: 0;
+  text-align: right;
+}
+
+.ag-card .tx-split {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 6px;
+}
+
+/* the accounts choice: owners as headings, accounts under them */
+.ag-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ag-opt-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-link,
+  .ag-node {
     transition: none;
   }
 }

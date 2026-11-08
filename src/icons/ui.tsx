@@ -2,6 +2,14 @@ import type { ReactNode } from 'react';
 
 const PATHS = {
   plus: <path d="M12 5v14M5 12h14" />,
+  graph: (
+    <>
+      <circle cx="6" cy="6" r="2.5" />
+      <circle cx="18" cy="9" r="2.5" />
+      <circle cx="9" cy="18" r="2.5" />
+      <path d="M8.4 6.6l7.2 1.8M6.6 8.4l1.8 7.2M16.4 11l-5.6 5.3" />
+    </>
+  ),
   minus: <path d="M5 12h14" />,
   search: (
     <>

@@ -787,6 +787,40 @@ export function FormBadge({ form }: { form: FormId }) {
   return <span className={`badge badge-${form}`}>{t(`form.${form}`)}</span>;
 }
 
+/**
+ * A "?" button with a small list of controls, shown on hover or on a click (a tap on a phone).
+ * Each item is "what to do — what it does".
+ */
+export function HelpPopover({ label, items }: { label: string; items: string[] }) {
+  const [hover, setHover] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useDismiss(pinned, () => setPinned(false), box);
+  const open = hover || pinned;
+  return (
+    <div className="help" ref={box} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <button type="button" className="icon-btn help-btn" onClick={() => setPinned((p) => !p)} aria-expanded={open} aria-label={label}>
+        ?
+      </button>
+      {open && (
+        <div className="help-pop" role="tooltip">
+          <dl>
+            {items.map((item) => {
+              const [how, what] = item.split(' — ');
+              return (
+                <div key={item}>
+                  <dt>{how}</dt>
+                  <dd>{what}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** An on / off switch with its label; the whole pill is the control. */
 export function Switch({ checked, onChange, label, title }: { checked: boolean; onChange: (v: boolean) => void; label: string; title?: string }) {
   return (

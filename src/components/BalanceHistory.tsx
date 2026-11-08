@@ -7,7 +7,7 @@ import { getIndex, round, type AssetMap } from '../lib/stats';
 import type { Account, Asset } from '../lib/types';
 import { href } from '../router';
 import { useStore } from '../store/store';
-import { AccountIcon, AssetIcon, Money, MultiSelect, Segmented, Switch, useDismiss } from './bits';
+import { AccountIcon, AssetIcon, HelpPopover, Money, MultiSelect, Segmented, Switch } from './bits';
 import { extendedSeries, useChartColors } from './charts';
 import { useViewState } from './viewState';
 
@@ -115,39 +115,6 @@ function LineFlag({ look }: { look: Look }) {
       <line x1="1.5" y1="1" x2="1.5" y2="15" className="bh-flag-pole" />
       <path d="M2 1.5H11L8.4 5L11 8.5H2Z" fill={look.dashed ? 'none' : look.color} stroke={look.color} strokeWidth="1.3" strokeDasharray={look.dashed ? '2 1.5' : undefined} />
     </svg>
-  );
-}
-
-/** The "?" in the card's corner: how to use the chart, on hover or on a click (a tap on a phone). */
-function HistoryHelp() {
-  const { t } = useI18n();
-  const [hover, setHover] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useDismiss(pinned, () => setPinned(false), box);
-  const open = hover || pinned;
-  return (
-    <div className="bh-help" ref={box} onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <button type="button" className="icon-btn bh-help-btn" onClick={() => setPinned((p) => !p)} aria-expanded={open} aria-label={t('history.helpTitle')}>
-        ?
-      </button>
-      {open && (
-        <div className="bh-help-pop" role="tooltip">
-          {/* "what to do — what it does" */}
-          <dl>
-            {(['helpClick', 'helpDrag', 'helpCtrlDrag', 'helpCtrlWheel', 'helpShiftWheel', 'helpTouch'] as const).map((k) => {
-              const [how, what] = t(`history.${k}`).split(' — ');
-              return (
-                <div key={k}>
-                  <dt>{how}</dt>
-                  <dd>{what}</dd>
-                </div>
-              );
-            })}
-          </dl>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -622,7 +589,7 @@ export function AccountsHistory({ accounts, stateKey }: { accounts: Account[]; s
       <section className="panel bh-chart">
         <div className="bh-head">
           <h2>{t('history.title')}</h2>
-          <div className="bh-tools">
+          <div className="bh-tools chart-tools">
             <Segmented<Preset>
               value={preset}
               onChange={choosePreset}
@@ -652,7 +619,10 @@ export function AccountsHistory({ accounts, stateKey }: { accounts: Account[]; s
               onChange={setShown}
               summary={shown.length === lines.length ? t('filter.all') : shown.length === 0 ? t('history.none') : `${num(shown.length)} / ${num(lines.length)}`}
             />
-            <HistoryHelp />
+            <HelpPopover
+              label={t('history.helpTitle')}
+              items={[t('history.helpClick'), t('history.helpDrag'), t('history.helpCtrlDrag'), t('history.helpCtrlWheel'), t('history.helpShiftWheel'), t('history.helpTouch')]}
+            />
           </div>
         </div>
 
