@@ -7,7 +7,7 @@ import { TxFilterGroups } from '../components/TxFilters';
 import { directionOf, TxList } from '../components/TxList';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { activeFilters, emptyFilter, filterTransactions, ownAccountIds, type TxFilter } from '../lib/analytics';
+import { activeFilters, emptyFilter, filterUndated, inDates, ownAccountIds, type TxFilter } from '../lib/analytics';
 import { getIndex } from '../lib/stats';
 import { useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
@@ -46,7 +46,9 @@ export function TransactionsPage({ query }: { query: URLSearchParams }) {
 
   const own = useMemo(() => ownAccountIds(ix), [ix]);
   const all = ix.txSorted;
-  const shown = useMemo(() => filterTransactions(ix, f), [ix, f]);
+  // the calendar shows what the search and filters find on any date; the list, only within the chosen dates
+  const undated = useMemo(() => filterUndated(ix, f), [ix, f]);
+  const shown = useMemo(() => undated.filter(inDates(ix, f)), [undated, ix, f]);
   const counts = useMemo(() => {
     const c = { in: 0, out: 0, internal: 0 };
     for (const x of shown) {
@@ -72,7 +74,8 @@ export function TransactionsPage({ query }: { query: URLSearchParams }) {
         <h2>{t('stats.activity')}</h2>
         {/* a click on a day, month or year sets the date range of the transactions below */}
         <ActivityCalendar
-          txs={all}
+          txs={undated}
+          scope={all}
           pick={{
             value: { from: f.from, to: f.to },
             onChange: (r) => {

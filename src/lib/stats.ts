@@ -130,6 +130,7 @@ function build(d: Data): Index {
   const account = new Map<string, AccountStats>();
   for (const a of d.accounts) {
     const balances: AssetMap = new Map(a.assetIds.map((x) => [x, a.initialBalances[x] ?? 0]));
+    for (const x of a.adjustments) add(balances, x.assetId, x.delta);
     account.set(a.id, { balances, flow: emptyFlow(), txs: [] });
   }
   // contacts

@@ -72,14 +72,19 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
   const categoryChip = category && (
     <a className="chip" href={href.detail('categories', category.id)} onClick={(e) => e.stopPropagation()}>
       <Icon name="tag" size={12} />
-      {parent ? `${parent.name} / ` : ''}
+      {parent && (
+        <>
+          <Highlight text={parent.name} query={q} />
+          {' / '}
+        </>
+      )}
       <Highlight text={category.name} query={q} />
     </a>
   );
   const debtChip = debt && (
     <a className="chip chip-debt" href={href.detail('debts', debt.id)} onClick={(e) => e.stopPropagation()}>
       <Icon name="handshake" size={12} />
-      {debt.name}
+      <Highlight text={debt.name} query={q} />
     </a>
   );
   const description = tx.description && (

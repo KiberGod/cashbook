@@ -50,6 +50,16 @@ export interface Contact extends Timestamps {
   isSelf: boolean;
 }
 
+/**
+ * A balance correction: from `date` on, the balance of one asset of the account is `delta` off
+ * what its transactions make it. Kept with the account, so its balance history has the step.
+ */
+export interface Adjustment {
+  date: string;
+  assetId: string;
+  delta: number;
+}
+
 export interface Account extends Timestamps {
   id: string;
   name: string;
@@ -59,6 +69,8 @@ export interface Account extends Timestamps {
   assetIds: string[];
   /** starting balance per asset, set once at creation */
   initialBalances: Record<string, number>;
+  /** balance corrections made later, oldest first */
+  adjustments: Adjustment[];
   /** public requisite: card / IBAN / wallet address (not for cash) */
   requisite: string;
   contactId: string;

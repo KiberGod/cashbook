@@ -12,7 +12,7 @@ import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { formPalette, imagePalette, type CardPalette } from '../lib/cardPalette';
 import { money, parseAmount } from '../lib/format';
-import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder, setInitialBalances } from '../lib/ops';
+import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder, adjustBalances } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
 import { accountFlowOf, getIndex, round, templatesUsing } from '../lib/stats';
 import { TxBrowser } from '../components/TxBrowser';
@@ -674,10 +674,9 @@ export function BalanceAdjustment({ account, onClose }: { account: Account; onCl
     if (invalid) return;
     setConfirm(true);
   };
-  // only once confirmed: the old balances are gone after this
+  // only once confirmed: a dated step in the account's history (the balance history shows when it was made)
   const save = () => {
-    const initial = Object.fromEntries(account.assetIds.map((x) => [x, round((account.initialBalances[x] ?? 0) + diff(x))]));
-    mutate((d) => setInitialBalances(d, account.id, initial));
+    mutate((d) => adjustBalances(d, account.id, Object.fromEntries(account.assetIds.map((x) => [x, diff(x)]))));
     onClose();
   };
 

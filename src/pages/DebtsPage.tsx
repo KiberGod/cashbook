@@ -311,7 +311,7 @@ export function DebtDetail({ id }: { id: string }) {
   );
 }
 
-function DeleteDebt({ debt, onClose, onDeleted }: { debt: Debt; onClose: () => void; onDeleted?: () => void }) {
+export function DeleteDebt({ debt, onClose, onDeleted }: { debt: Debt; onClose: () => void; onDeleted?: () => void }) {
   const { t, tn } = useI18n();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);

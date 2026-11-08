@@ -11,3 +11,5 @@ dist/
 docs/task.md
 # development-only test data generator - never committed
 dev-local/
+# TypeScript build cache (tsc -b)
+*.tsbuildinfo

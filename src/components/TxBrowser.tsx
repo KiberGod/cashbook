@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { NONE } from '../lib/analytics';
+import { emptyFilter, inDates, NONE, searchTexts } from '../lib/analytics';
 import { parseAmount } from '../lib/format';
 import { matchesAny } from '../lib/search';
 import { getIndex, withChildren, type Index } from '../lib/stats';
@@ -18,6 +18,8 @@ import { useViewState } from './viewState';
 interface TxBrowserFilter {
   q: string;
   dir: 'all' | 'in' | 'out';
+  /** the record's own accounts a transaction must touch (a contact's); none chosen = all of them */
+  ownAccounts?: string[];
   toContacts: string[];
   fromAccounts: string[];
   toAccounts: string[];
@@ -30,15 +32,17 @@ interface TxBrowserFilter {
   to: string;
 }
 
-const EMPTY: TxBrowserFilter = { q: '', dir: 'all', toContacts: [], fromAccounts: [], toAccounts: [], categories: [], services: [], minAmount: '', maxAmount: '', from: '', to: '' };
+const EMPTY: TxBrowserFilter = { q: '', dir: 'all', ownAccounts: [], toContacts: [], fromAccounts: [], toAccounts: [], categories: [], services: [], minAmount: '', maxAmount: '', from: '', to: '' };
 
 const countFilters = (f: TxBrowserFilter) =>
-  [f.dir !== 'all', f.toContacts.length, f.fromAccounts?.length, f.toAccounts.length, f.categories.length, f.services.length, f.minAmount || f.maxAmount, f.from || f.to].filter(Boolean).length;
+  [f.dir !== 'all', f.ownAccounts?.length, f.toContacts.length, f.fromAccounts?.length, f.toAccounts.length, f.categories.length, f.services.length, f.minAmount || f.maxAmount, f.from || f.to].filter(Boolean).length;
 
 type Dir = 'in' | 'out' | 'other';
 
-function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t: Transaction) => Dir, side: Set<string>): Transaction[] {
+/** Everything but the dates (those are `inDates`): what the activity calendar shows. */
+function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t: Transaction) => Dir): Transaction[] {
   const set = (l: string[]) => (l.length ? new Set(l) : null);
+  const ownAccounts = set(f.ownAccounts ?? []);
   const toContacts = set(f.toContacts);
   const fromAccounts = set(f.fromAccounts ?? []);
   const toAccounts = set(f.toAccounts);
@@ -47,10 +51,9 @@ function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t
   const num = (v: string) => (v.trim() ? parseAmount(v) : null);
   const min = num(f.minAmount);
   const max = num(f.maxAmount);
-  const from = f.from ? new Date(f.from).getTime() : null;
-  const to = f.to ? new Date(f.to).getTime() : null;
   return list.filter((x) => {
     if (f.dir !== 'all' && dirOf(x) !== f.dir) return false;
+    if (ownAccounts && !ownAccounts.has(x.fromId) && !ownAccounts.has(x.toId)) return false;
     if (fromAccounts && !fromAccounts.has(x.fromId || NONE)) return false;
     if (toAccounts && !toAccounts.has(x.toId || NONE)) return false;
     if (toContacts && !toContacts.has((x.toId && ix.accounts.get(x.toId)?.contactId) || NONE)) return false;
@@ -58,14 +61,8 @@ function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t
     if (services && !services.has(ix.accounts.get(x.fromId)?.serviceId ?? '') && !services.has(ix.accounts.get(x.toId)?.serviceId ?? '')) return false;
     if (min !== null && x.amount < min) return false;
     if (max !== null && x.amount > max) return false;
-    const time = ix.time.get(x.id) ?? new Date(x.date).getTime();
-    if (from !== null && time < from) return false;
-    if (to !== null && time >= to + 60_000) return false; // the "to" minute is included
-    if (!f.q) return true;
-    // the other side: the account that is not the one the list is seen from (both, when neither or both are)
-    const others = [x.fromId, x.toId].filter((a) => a && !side.has(a)).map((a) => ix.accounts.get(a));
-    const cat = ix.categories.get(x.categoryId);
-    return matchesAny(f.q, x.description, cat?.name, ...others.flatMap((a) => [a?.name, a?.contactId ? ix.contacts.get(a.contactId)?.name : '']));
+    // the same fields as on the transactions page
+    return !f.q.trim() || matchesAny(f.q, ...searchTexts(ix, x));
   });
 }
 
@@ -81,6 +78,7 @@ export function TxBrowser({
   stateKey,
   prefKey,
   recipient = true,
+  own,
   fromTo,
   dirOf,
   dirLabels,
@@ -92,6 +90,8 @@ export function TxBrowser({
   prefKey: string;
   /** the "who receives" filter group */
   recipient?: boolean;
+  /** a group to narrow the list to some of these accounts (a contact's), all of them by default */
+  own?: string[];
   /** an "accounts" group with both sides instead, offering these accounts (and "external") */
   fromTo?: string[];
   dirOf?: (t: Transaction) => Dir;
@@ -120,19 +120,23 @@ export function TxBrowser({
   const toAccountOptions = opts.accountsWithNone.filter((o) => fitsContacts(o.value, f.toContacts));
   const setToContacts = (toContacts: string[]) => setF((prev) => ({ ...prev, toContacts, toAccounts: prev.toAccounts.filter((a) => fitsContacts(a, toContacts)) }));
 
+  const ownOptions = own ? opts.accounts.filter((o) => own.includes(o.value)) : [];
   const sideOptions = fromTo ? opts.accountsWithNone.filter((o) => o.value === NONE || fromTo.includes(o.value)) : [];
 
-  const shown = useMemo(() => filterTxs(ix, txs, f, dir, side), [ix, txs, f, dir, side]);
+  // the calendar shows what the search and filters find on any date; the list, only within the chosen dates
+  const undated = useMemo(() => filterTxs(ix, txs, f, dir), [ix, txs, f, dir]);
+  const shown = useMemo(() => undated.filter(inDates(ix, { ...emptyFilter(), from: f.from, to: f.to })), [undated, ix, f.from, f.to]);
   const counts = useMemo(() => {
     let inN = 0;
     let outN = 0;
-    for (const x of txs) {
+    // like on the transactions page: the directions of what is shown
+    for (const x of shown) {
       const d = dir(x);
       if (d === 'in') inN++;
       else if (d === 'out') outN++;
     }
     return { in: inN, out: outN };
-  }, [txs, dir]);
+  }, [shown, dir]);
 
   return (
     <>
@@ -140,7 +144,8 @@ export function TxBrowser({
         <h2>{t('stats.activity')}</h2>
         {/* a click on a day, month or year sets the date range of the transactions below */}
         <ActivityCalendar
-          txs={txs}
+          txs={undated}
+          scope={txs}
           pick={{
             value: { from: f.from, to: f.to },
             onChange: (r) => {
@@ -156,7 +161,8 @@ export function TxBrowser({
           <h2>
             {t('nav.transactions')}{' '}
             <span className="count" title={`${labels.in}: ${num(counts.in)} · ${labels.out}: ${num(counts.out)}`}>
-              {num(txs.length)}
+              {num(shown.length)}
+              {shown.length !== txs.length && <span className="muted"> / {num(txs.length)}</span>}
               <span className="count-dirs">
                 (<Icon name="arrowIn" size={12} className="flow-in" />
                 {num(counts.in)}
@@ -181,6 +187,14 @@ export function TxBrowser({
         </div>
         {moreFilters && (
           <div className="filter-panel filter-groups">
+            {own && (
+              <div className="field" role="group">
+                <span className="field-label">{t('filter.ownAccounts')}</span>
+                <div className="filter-group-row">
+                  <MultiSelect label={t('filter.account')} options={ownOptions} value={f.ownAccounts ?? []} onChange={setFilter('ownAccounts')} />
+                </div>
+              </div>
+            )}
             {recipient && (
               <div className="field" role="group">
                 <span className="field-label">{t('filter.recipient')}</span>

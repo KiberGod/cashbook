@@ -91,14 +91,19 @@ export function TemplateCard({ x, q = '', sortable = false }: { x: Template; q?:
               {category && (
                 <a className="chip" href={href.detail('categories', category.id)} onClick={stop}>
                   <Icon name="tag" size={12} />
-                  {parent ? `${parent.name} / ` : ''}
+                  {parent && (
+                    <>
+                      <Highlight text={parent.name} query={q} />
+                      {' / '}
+                    </>
+                  )}
                   <Highlight text={category.name} query={q} />
                 </a>
               )}
               {debt && (
                 <a className="chip chip-debt" href={href.detail('debts', debt.id)} onClick={stop}>
                   <Icon name="handshake" size={12} />
-                  {debt.name}
+                  <Highlight text={debt.name} query={q} />
                 </a>
               )}
             </span>

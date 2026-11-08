@@ -7,13 +7,13 @@ import {
 } from './types';
 
 /**
- * Spreadsheet layout (schema v5). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v6). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
  *   Services      id | name | description | image | forms | order | createdAt | updatedAt
  *   Contacts      id | name | description | image | isSelf | createdAt | updatedAt
- *   Accounts      id | name | description | form | assetIds | initialBalances | requisite | contactId | serviceId | order | createdAt | updatedAt
+ *   Accounts      id | name | description | form | assetIds | initialBalances | adjustments | requisite | contactId | serviceId | order | createdAt | updatedAt
  *   Categories    id | name | description | image | parentId | order | createdAt | updatedAt
  *   Transactions  id | date | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | createdAt | updatedAt
  *   Debts         id | name | description | assetId | debtorId | creditorId | amount | createdAt | updatedAt
@@ -22,8 +22,9 @@ import {
  * In an encrypted spreadsheet every data sheet has a single column "data":
  * each row is the JSON record of one entity, encrypted (see lib/crypto.ts).
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
+ * Balances and adjustments are JSON in plain cells too.
  */
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 
@@ -42,7 +43,7 @@ export const SHEETS: Record<EntityKind | 'meta', string> = {
 /** Sheets added by a later schema: a spreadsheet older than that may lack them, the migration creates them. */
 export const SHEET_SINCE: Partial<Record<EntityKind, number>> = { templates: 5 };
 
-type ColType = 'text' | 'number' | 'numberOrNull' | 'int' | 'bool' | 'list' | 'balances';
+type ColType = 'text' | 'number' | 'numberOrNull' | 'int' | 'bool' | 'list' | 'balances' | 'adjustments';
 type Spec = [name: string, type: ColType][];
 
 const STAMPS: Spec = [
@@ -86,6 +87,7 @@ export const COLUMNS: Record<EntityKind, Spec> = {
     ['form', 'text'],
     ['assetIds', 'list'],
     ['initialBalances', 'balances'],
+    ['adjustments', 'adjustments'],
     ['requisite', 'text'],
     ['contactId', 'text'],
     ['serviceId', 'text'],
@@ -207,6 +209,8 @@ export function recordToCells(kind: EntityKind, rec: RawRecord): Cell[] {
         return Array.isArray(v) ? v.join(',') : str(v);
       case 'balances':
         return JSON.stringify(v ?? {});
+      case 'adjustments':
+        return JSON.stringify(v ?? []);
       case 'bool':
         return v ? 'TRUE' : 'FALSE';
       case 'numberOrNull':
@@ -292,6 +296,29 @@ export function fromRecord(kind: EntityKind, rec: RawRecord): { entity: RawRecor
         entity[name] = out;
         break;
       }
+      case 'adjustments': {
+        let list: unknown = v;
+        if (typeof v === 'string') {
+          try {
+            list = v.trim() ? JSON.parse(v) : [];
+          } catch {
+            list = null;
+          }
+        }
+        const out: { date: string; assetId: string; delta: number }[] = [];
+        if (Array.isArray(list)) {
+          for (const x of list) {
+            const r = (x ?? {}) as Record<string, unknown>;
+            const delta = toNumber(r.delta);
+            if (delta === null || typeof r.assetId !== 'string' || typeof r.date !== 'string') problems.push({ column: name, value: JSON.stringify(x) });
+            else out.push({ date: r.date, assetId: r.assetId, delta });
+          }
+        } else if (v !== undefined && v !== null && str(v) !== '') {
+          problems.push({ column: name, value: str(v) });
+        }
+        entity[name] = out;
+        break;
+      }
     }
   }
   return { entity, problems };
@@ -339,6 +366,7 @@ export function validateData(data: Data, lines: Map<string, number>): Validation
     if (a.assetIds.length === 0 || (a.form !== 'crypto' && a.assetIds.length > 1)) bad('accounts', a.id, 'assetIds');
     for (const id of a.assetIds) if (!assetIds.has(id)) broken('accounts', a.id, `assetIds: ${id}`);
     for (const id of Object.keys(a.initialBalances)) if (!a.assetIds.includes(id)) bad('accounts', a.id, 'initialBalances');
+    for (const x of a.adjustments) if (!a.assetIds.includes(x.assetId) || Number.isNaN(Date.parse(x.date))) bad('accounts', a.id, 'adjustments');
     if (a.contactId && !contactIds.has(a.contactId)) broken('accounts', a.id, `contactId: ${a.contactId}`);
     if (a.serviceId && !serviceIds.has(a.serviceId)) broken('accounts', a.id, `serviceId: ${a.serviceId}`);
     if (a.serviceId && a.form === 'cash') bad('accounts', a.id, 'serviceId');

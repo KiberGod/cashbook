@@ -106,7 +106,8 @@ export function deleteContact(d: Data, id: string): Data {
 
 // ---- accounts ----
 
-export type AccountFields = Omit<Fields<Account>, 'order'>;
+/** what the editor sets; the order comes from the list, the corrections from adjustBalances */
+export type AccountFields = Omit<Fields<Account>, 'order' | 'adjustments'>;
 
 /**
  * On update the form never changes and assets can only be added (crypto). A newly added
@@ -114,9 +115,13 @@ export type AccountFields = Omit<Fields<Account>, 'order'>;
  */
 export function saveAccount(d: Data, f: AccountFields, id?: string) {
   // a new account goes to the end of the list, an edited one keeps its place
-  let fields: Fields<Account> = { ...f, order: id ? d.accounts.find((a) => a.id === id)!.order : Math.max(-1, ...d.accounts.map((a) => a.order)) + 1 };
-  if (id) {
-    const old = d.accounts.find((a) => a.id === id)!;
+  const old = id ? d.accounts.find((a) => a.id === id) : undefined;
+  let fields: Fields<Account> = {
+    ...f,
+    order: old ? old.order : Math.max(-1, ...d.accounts.map((a) => a.order)) + 1,
+    adjustments: old ? old.adjustments : [],
+  };
+  if (old) {
     const added = f.assetIds.filter((x) => !old.assetIds.includes(x));
     const assetIds = old.form === 'crypto' ? [...old.assetIds, ...added] : old.assetIds;
     const initialBalances = { ...old.initialBalances };
@@ -129,16 +134,18 @@ export function saveAccount(d: Data, f: AccountFields, id?: string) {
 }
 
 /**
- * Sets an account's starting balances (its own assets only). The current balances move by the
- * same difference; the transactions stay as they are.
+ * Balance correction: each asset's balance moves by its difference from now on (a dated step in
+ * the account's history); the starting balances and the transactions stay as they are.
  */
-export function setInitialBalances(d: Data, id: string, balances: Record<string, number>): Data {
+export function adjustBalances(d: Data, id: string, deltas: Record<string, number>): Data {
   const t = now();
   return {
     ...d,
-    accounts: d.accounts.map((a) =>
-      a.id === id ? { ...a, initialBalances: Object.fromEntries(a.assetIds.map((x) => [x, balances[x] ?? a.initialBalances[x] ?? 0])), updatedAt: t } : a,
-    ),
+    accounts: d.accounts.map((a) => {
+      if (a.id !== id) return a;
+      const added = a.assetIds.filter((x) => deltas[x]).map((x) => ({ date: t, assetId: x, delta: deltas[x] }));
+      return added.length ? { ...a, adjustments: [...a.adjustments, ...added], updatedAt: t } : a;
+    }),
   };
 }
 

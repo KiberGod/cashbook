@@ -110,6 +110,7 @@ export function presetData(lang: Lang): Data {
     form: 'bank',
     assetIds: [uah.id],
     initialBalances: { [uah.id]: 0 },
+    adjustments: [],
     requisite: '',
     contactId: self.id,
     serviceId: '',

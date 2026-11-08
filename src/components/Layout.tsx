@@ -269,12 +269,15 @@ export function PageHead({
   icon,
   actions,
   subtitle,
+  badge,
 }: {
   crumbs?: Crumb[];
   title: string;
   icon?: ReactNode;
   actions?: ReactNode;
   subtitle?: ReactNode;
+  /** a small mark right after the title, on its line */
+  badge?: ReactNode;
 }) {
   return (
     <div className="page-head">
@@ -292,6 +295,7 @@ export function PageHead({
         <h1 className="page-title">
           {icon}
           <span>{title}</span>
+          {badge}
         </h1>
         {actions && <div className="page-actions">{actions}</div>}
       </div>

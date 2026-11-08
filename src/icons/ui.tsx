@@ -225,6 +225,8 @@ const PATHS = {
   ),
   arrowIn: <path d="M19 5 5 19M5 9v10h10" />,
   arrowOut: <path d="M5 19 19 5M9 5h10v10" />,
+  arrowUp: <path d="M12 19V5M5 12l7-7 7 7" />,
+  arrowDown: <path d="M12 5v14M19 12l-7 7-7-7" />,
   info: (
     <>
       <circle cx="12" cy="12" r="9" />

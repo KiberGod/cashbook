@@ -52,6 +52,8 @@ const STEPS: Record<number, Step> = {
   },
   // transaction templates: a new sheet, empty at first (created when the spreadsheet is rewritten)
   4: (t) => ({ ...t, templates: t.templates ?? [] }),
+  // balance corrections are kept as dated steps instead of rewriting the starting balance; none yet
+  5: (t) => ({ ...t, accounts: t.accounts.map((a) => ({ ...a, adjustments: a.adjustments ?? [] })) }),
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

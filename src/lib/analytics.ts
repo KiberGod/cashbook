@@ -168,45 +168,58 @@ function matcher(ix: Index, f: TxFilter) {
     if ((min !== null || max !== null) && t.amount === null) return false;
     if (min !== null && t.amount! < min) return false;
     if (max !== null && t.amount! > max) return false;
-    if (q) {
-      const cat = ix.categories.get(t.categoryId);
-      const parent = cat?.parentId ? ix.categories.get(cat.parentId) : undefined;
-      if (
-        !matchesAny(
-          q,
-          ...texts,
-          t.description,
-          fromAcc?.name,
-          toAcc?.name,
-          fromAcc?.requisite,
-          toAcc?.requisite,
-          ix.contacts.get(fromAcc?.contactId ?? '')?.name,
-          ix.contacts.get(toAcc?.contactId ?? '')?.name,
-          cat?.name,
-          parent?.name,
-          ix.debts.get(t.debtId)?.name,
-          t.amount === null ? undefined : String(t.amount),
-        )
-      )
-        return false;
-    }
+    if (q && !matchesAny(q, ...texts, ...searchTexts(ix, t))) return false;
     return true;
   };
 }
 
+/**
+ * What the search looks in for a transaction (or a template), wherever transactions are searched:
+ * its description, both accounts with their requisites and contacts, the category with its parent,
+ * and the debt.
+ */
+export function searchTexts(ix: Index, t: Pick<Transaction, 'fromId' | 'toId' | 'categoryId' | 'debtId' | 'description'>): (string | undefined)[] {
+  const fromAcc = ix.accounts.get(t.fromId);
+  const toAcc = ix.accounts.get(t.toId);
+  const cat = ix.categories.get(t.categoryId);
+  const parent = cat?.parentId ? ix.categories.get(cat.parentId) : undefined;
+  return [
+    t.description,
+    fromAcc?.name,
+    toAcc?.name,
+    fromAcc?.requisite,
+    toAcc?.requisite,
+    ix.contacts.get(fromAcc?.contactId ?? '')?.name,
+    ix.contacts.get(toAcc?.contactId ?? '')?.name,
+    cat?.name,
+    parent?.name,
+    ix.debts.get(t.debtId)?.name,
+  ];
+}
+
 /** Applies the filter to the newest-first list of all transactions. */
 export function filterTransactions(ix: Index, f: TxFilter): Transaction[] {
+  return filterUndated(ix, f).filter(inDates(ix, f));
+}
+
+/** The filter without its dates (period and range): what the activity calendar shows. */
+export function filterUndated(ix: Index, f: TxFilter): Transaction[] {
+  const fits = matcher(ix, f);
+  return ix.txSorted.filter((t) => fits(t));
+}
+
+/** The filter's dates alone: its period and its range (both ends included to the minute). */
+export function inDates(ix: Index, f: TxFilter): (t: Transaction) => boolean {
   const range = periodRange(f.period);
   const from = f.from ? new Date(f.from).getTime() : null;
   const to = f.to ? new Date(f.to).getTime() + 60_000 : null;
-  const fits = matcher(ix, f);
-  return ix.txSorted.filter((t) => {
-    const time = ix.time.get(t.id)!;
+  return (t) => {
+    const time = ix.time.get(t.id) ?? new Date(t.date).getTime();
     if (range && (time < range[0] || time >= range[1])) return false;
     if (from !== null && time < from) return false;
     if (to !== null && time >= to) return false;
-    return fits(t);
-  });
+    return true;
+  };
 }
 
 /** Applies the filter (its date fields aside) to the templates, in the user's order; the search also looks at their names. */
@@ -374,10 +387,18 @@ export function balanceSeries(ix: Index, accounts: Account[], bs: Bucket[], asse
   let balance = 0;
   for (const a of accounts) balance += a.initialBalances[asset] ?? 0;
   const asc = [...ix.txSorted].reverse();
+  // balance corrections are dated steps too
+  const fixes = accounts
+    .flatMap((a) => a.adjustments)
+    .filter((x) => x.assetId === asset)
+    .map((x) => ({ time: Date.parse(x.date), delta: x.delta }))
+    .sort((a, b) => a.time - b.time);
   const out: { start: number; balance: number }[] = [];
   let i = 0;
+  let j = 0;
   for (const b of bs) {
     for (; i < asc.length && ix.time.get(asc[i].id)! < b.end; i++) balance += delta(asc[i], ids, asset);
+    for (; j < fixes.length && fixes[j].time < b.end; j++) balance += fixes[j].delta;
     out.push({ start: b.start, balance: round(balance) });
   }
   return out;
@@ -398,6 +419,7 @@ export function balancesAt(ix: Index, accounts: Account[], time: number): AssetM
   const ids = new Set(accounts.map((a) => a.id));
   const m: AssetMap = new Map();
   for (const a of accounts) for (const x of a.assetIds) add(m, x, a.initialBalances[x] ?? 0);
+  for (const a of accounts) for (const x of a.adjustments) if (Date.parse(x.date) < time) add(m, x.assetId, x.delta);
   for (const t of ix.txSorted) {
     if (ix.time.get(t.id)! >= time) continue;
     if (ids.has(t.toId)) add(m, t.assetId, t.amount);

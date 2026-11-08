@@ -1,11 +1,11 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { ActivityCalendar } from '../components/ActivityCalendar';
 import { AssetAmounts, Avatar, CardMenu, EmptyState, Highlight, LinkList, Pagination, SearchField, Stat, usePaged } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { useViewState } from '../components/viewState';
 import { ConfirmDialog, Modal } from '../components/Modal';
-import { TxList } from '../components/TxList';
+import { TxBrowser } from '../components/TxBrowser';
+import { AccountsHistory } from '../components/BalanceHistory';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteContact, saveContact } from '../lib/ops';
@@ -15,7 +15,8 @@ import type { Contact } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { AccountEditor } from './AccountsPage';
-import { DebtEditor, DebtRow } from './DebtsPage';
+import { ContactDebts } from './ContactDebts';
+import { DebtEditor } from './DebtsPage';
 import { NotFound } from './common';
 
 export function ContactsPage() {
@@ -47,7 +48,7 @@ export function ContactsPage() {
           </button>
         }
       />
-      <div className="toolbar">
+      <div className="toolbar toolbar-wide">
         <SearchField value={q} onChange={setQ} placeholder={t('contacts.search')} />
       </div>
       {list.length === 0 ? (
@@ -90,6 +91,9 @@ export function ContactsPage() {
   );
 }
 
+const PAGE_TABS = ['overview', 'accounts', 'debts', 'activity'] as const;
+type PageTab = (typeof PAGE_TABS)[number];
+
 export function ContactDetail({ id }: { id: string }) {
   const i18n = useI18n();
   const { t, num, locale } = i18n;
@@ -100,26 +104,17 @@ export function ContactDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   const [addAccount, setAddAccount] = useState(false);
   const [addDebt, setAddDebt] = useState(false);
-  const [q, setQ] = useViewState(`contact.${id}.q`, '');
   const s = ix.contact.get(id);
   const side = useMemo(() => new Set(s?.accounts.map((a) => a.id) ?? []), [s]);
-
-  const txs = useMemo(() => {
-    if (!s || !q) return s?.txs ?? [];
-    return s.txs.filter((x) => {
-      const f = ix.accounts.get(x.fromId);
-      const to = ix.accounts.get(x.toId);
-      return matchesAny(
-        q,
-        x.description,
-        f?.name,
-        to?.name,
-        ix.contacts.get(f?.contactId ?? '')?.name,
-        ix.contacts.get(to?.contactId ?? '')?.name,
-        ix.categories.get(x.categoryId)?.name,
-      );
-    });
-  }, [s, q, ix]);
+  // the page's sections; the open tab is kept in the address (?tab=), so Back returns to it
+  const [pageTab, setPageTabState] = useState<PageTab>(() => {
+    const tab = new URLSearchParams(location.hash.split('?')[1] ?? '').get('tab');
+    return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
+  });
+  const setPageTab = (tab: PageTab) => {
+    setPageTabState(tab);
+    history.replaceState(history.state, '', href.detail('contacts', id) + (tab === 'overview' ? '' : `?tab=${tab}`));
+  };
 
   if (!contact || !s) return <NotFound />;
   const accounts = [...s.accounts].sort(byName(locale));
@@ -129,8 +124,8 @@ export function ContactDetail({ id }: { id: string }) {
       <PageHead
         crumbs={[{ label: t('nav.contacts'), href: href.list('contacts') }]}
         title={contact.name}
+        badge={contact.isSelf ? <span className="badge badge-accent">{t('contacts.me')}</span> : undefined}
         icon={<Avatar image={contact.image} name={contact.name} size={38} />}
-        subtitle={contact.isSelf ? <span className="badge badge-accent">{t('contacts.meLong')}</span> : undefined}
         actions={
           <>
             <button type="button" className="btn" onClick={() => setAddAccount(true)}>
@@ -154,134 +149,78 @@ export function ContactDetail({ id }: { id: string }) {
           </>
         }
       />
-      {contact.description && <p className="muted pre detail-desc">{contact.description}</p>}
+      <nav className="page-tabs" role="tablist" aria-label={contact.name}>
+        {PAGE_TABS.map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={pageTab === k} className={pageTab === k ? 'active' : ''} onClick={() => setPageTab(k)}>
+            {t(`contacts.page.${k}`)}
+            {k === 'accounts' && <span className="count">{num(accounts.length)}</span>}
+            {k === 'debts' && <span className="count">{num(s.debts.length)}</span>}
+          </button>
+        ))}
+      </nav>
 
-      <div className="stats-row">
-        <Stat label={t('nav.accounts')} icon="wallet">
-          {num(accounts.length)}
-        </Stat>
-        <Stat
-          label={t('stats.transactions')}
-          icon="swap"
-          hint={t('stats.inOutInternal', { in: num(s.flow.txIn), out: num(s.flow.txOut), internal: num(s.flow.txInternal) })}
-        >
-          {num(s.flow.tx)}
-        </Stat>
-        <Stat label={t('stats.balance')} icon="coins">
-          <AssetAmounts map={s.balances} assets={data.assets} />
-        </Stat>
-        <Stat label={t('stats.balanceWithDebts')} icon="handshake">
-          <AssetAmounts map={s.balancesWithDebts} assets={data.assets} />
-        </Stat>
-      </div>
-      <div className="stats-row">
-        <Stat label={t('stats.received')} icon="arrowIn" hint={t('stats.receivedHint')}>
-          <AssetAmounts map={s.flow.in} assets={data.assets} />
-        </Stat>
-        <Stat label={t('stats.sent')} icon="arrowOut" hint={t('stats.sentHint')}>
-          <AssetAmounts map={s.flow.out} assets={data.assets} />
-        </Stat>
-        <Stat label={t('stats.internal')} icon="swap">
-          <AssetAmounts map={s.flow.internal} assets={data.assets} />
-        </Stat>
-        <Stat label={t('stats.fees')} icon="fee">
-          <AssetAmounts map={s.flow.fees} assets={data.assets} />
-        </Stat>
-      </div>
-      <div className="stats-row">
-        <Stat label={contact.isSelf ? t('debts.owedToMeShort') : t('debts.owedToMe', { name: contact.name })} icon="arrowIn">
-          <AssetAmounts map={s.owedToMe} assets={data.assets} />
-        </Stat>
-        <Stat label={contact.isSelf ? t('debts.iOweShort') : t('debts.iOwe', { name: contact.name })} icon="arrowOut">
-          <AssetAmounts map={s.iOwe} assets={data.assets} />
-        </Stat>
-      </div>
+      {pageTab === 'overview' && (
+        <div className="acc-tab-panel">
+          {contact.description && <p className="muted pre detail-desc">{contact.description}</p>}
 
-      <section className="section">
-        <div className="section-head">
-          <h2>
-            {t('nav.accounts')} <span className="count">{accounts.length}</span>
-          </h2>
-        </div>
-        {accounts.length === 0 ? (
-          <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{t('accounts.one')}</th>
-                  <th>{t('accounts.balance')}</th>
-                  <th className="num">{t('stats.txInOut')}</th>
-                  <th>{t('stats.received')}</th>
-                  <th>{t('stats.sent')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map((a) => {
-                  const as = ix.account.get(a.id)!;
-                  return (
-                    <tr key={a.id}>
-                      <td>
-                        <a href={href.detail('accounts', a.id)}>{a.name}</a>
-                        <div className="muted small">{t(`form.${a.form}`)}</div>
-                      </td>
-                      <td>
-                        <AssetAmounts map={as.balances} assets={data.assets} keepZero />
-                      </td>
-                      <td className="num">
-                        {num(as.flow.tx)}
-                        <div className="muted small">
-                          ↓{num(as.flow.txIn)} ↑{num(as.flow.txOut)}
-                        </div>
-                      </td>
-                      <td>
-                        <AssetAmounts map={as.flow.in} assets={data.assets} />
-                      </td>
-                      <td>
-                        <AssetAmounts map={as.flow.out} assets={data.assets} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="stats-row">
+            <Stat label={t('nav.accounts')} icon="wallet">
+              {num(accounts.length)}
+            </Stat>
+            <Stat
+              label={t('stats.transactions')}
+              icon="swap"
+              hint={t('stats.inOutInternal', { in: num(s.flow.txIn), out: num(s.flow.txOut), internal: num(s.flow.txInternal) })}
+            >
+              {num(s.flow.tx)}
+            </Stat>
+            <Stat label={t('stats.balance')} icon="coins">
+              <AssetAmounts map={s.balances} assets={data.assets} />
+            </Stat>
+            <Stat label={t('stats.balanceWithDebts')} icon="handshake">
+              <AssetAmounts map={s.balancesWithDebts} assets={data.assets} />
+            </Stat>
           </div>
-        )}
-      </section>
+          <div className="stats-row">
+            <Stat label={t('stats.received')} icon="arrowIn" hint={t('stats.receivedHint')}>
+              <AssetAmounts map={s.flow.in} assets={data.assets} />
+            </Stat>
+            <Stat label={t('stats.sent')} icon="arrowOut" hint={t('stats.sentHint')}>
+              <AssetAmounts map={s.flow.out} assets={data.assets} />
+            </Stat>
+            <Stat label={t('stats.internal')} icon="swap">
+              <AssetAmounts map={s.flow.internal} assets={data.assets} />
+            </Stat>
+            <Stat label={t('stats.fees')} icon="fee">
+              <AssetAmounts map={s.flow.fees} assets={data.assets} />
+            </Stat>
+          </div>
+        </div>
+      )}
 
-      <div className="detail-grid">
-        <section className="panel panel-wide">
-          <h2>{t('stats.activity')}</h2>
-          <ActivityCalendar txs={s.txs} />
-        </section>
-        <section className="panel">
-          <h2>
-            {t('nav.debts')} <span className="count">{s.debts.length}</span>
-          </h2>
-          {s.debts.length === 0 ? (
-            <p className="muted">{t('debts.none')}</p>
+      {pageTab === 'accounts' && (
+        <section className="acc-tab-panel">
+          {accounts.length === 0 ? (
+            <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
           ) : (
-            <div className="rows rows-compact">
-              {s.debts.map((d) => (
-                <DebtRow key={d.id} d={d} />
-              ))}
-            </div>
+            // the accounts' balances over time, with the accounts right under it
+            <AccountsHistory accounts={accounts} stateKey={`contact.${id}`} />
           )}
         </section>
-      </div>
+      )}
 
-      <section className="section">
-        <div className="section-head">
-          <h2>
-            {t('nav.transactions')} <span className="count">{s.txs.length}</span>
-          </h2>
+      {pageTab === 'debts' && (
+        <div className="acc-tab-panel">
+          <ContactDebts contact={contact} />
         </div>
-        <div className="toolbar">
-          <SearchField value={q} onChange={setQ} placeholder={t('tx.search')} />
+      )}
+
+      {pageTab === 'activity' && (
+        <div className="acc-tab-panel">
+          {/* like an account's history, over all of the contact's accounts; a filter narrows it to some of them */}
+          <TxBrowser txs={s.txs} side={side} stateKey={`contact.${id}`} prefKey="contactTx" own={accounts.map((a) => a.id)} />
         </div>
-        <TxList txs={txs} side={side} q={q} prefKey="contactTx" resetKey={`${id}|${q}`} />
-      </section>
+      )}
 
       {edit && <ContactEditor contact={contact} onClose={() => setEdit(false)} />}
       {del && <DeleteContact contact={contact} onClose={() => setDel(false)} onDeleted={() => (location.hash = href.list('contacts'))} />}

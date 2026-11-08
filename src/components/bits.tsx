@@ -437,9 +437,11 @@ export interface Option {
   group?: string;
   /** shown before the group's name in its heading (Picker), e.g. the contact's picture */
   groupIcon?: ReactNode;
+  /** the group's heading in a MultiSelect, instead of its name in small capitals (a tree's parent row) */
+  groupRender?: ReactNode;
   /** what the closed Picker shows when this item is chosen, instead of its icon and label */
   chosen?: ReactNode;
-  /** its row in the Picker's list, instead of its icon, label and hint (which still serve the search) */
+  /** its row in the list (Picker, MultiSelect), instead of its icon, label and hint (which still serve the search) */
   render?: ReactNode;
   /** a highlight after the label, e.g. "it's you" */
   badge?: string;
@@ -523,6 +525,7 @@ export function MultiSelect({
   value,
   onChange,
   allLabel,
+  summary: fixedSummary,
   searchable = options.length > 8,
 }: {
   label: string;
@@ -530,6 +533,8 @@ export function MultiSelect({
   value: string[];
   onChange: (v: string[]) => void;
   allLabel?: string;
+  /** what the closed button shows, instead of "all" / the one chosen / "n chosen" */
+  summary?: string;
   searchable?: boolean;
 }) {
   const { t } = useI18n();
@@ -542,11 +547,12 @@ export function MultiSelect({
   const selected = new Set(value);
   const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
   const summary =
-    value.length === 0
+    fixedSummary ??
+    (value.length === 0
       ? (allLabel ?? t('filter.all'))
       : value.length === 1
         ? (options.find((o) => o.value === value[0])?.label ?? '1')
-        : t('filter.selected', { n: value.length });
+        : t('filter.selected', { n: value.length }));
   const toggle = (v: string) => onChange(selected.has(v) ? value.filter((x) => x !== v) : [...value, v]);
   let lastGroup: string | undefined;
 
@@ -571,14 +577,18 @@ export function MultiSelect({
               lastGroup = o.group;
               return (
                 <div key={o.value}>
-                  {head && <div className="multiselect-group">{head}</div>}
+                  {head && (o.groupRender ? <div className="multiselect-parent">{o.groupRender}</div> : <div className="multiselect-group">{head}</div>)}
                   <label className="multiselect-item" style={{ paddingLeft: 10 + (o.depth ?? 0) * 18 }}>
                     <input type="checkbox" checked={selected.has(o.value)} onChange={() => toggle(o.value)} />
-                    {o.icon}
-                    <span>
-                      <Highlight text={o.label} query={q} />
-                      {o.hint && <small className="muted"> · {o.hint}</small>}
-                    </span>
+                    {o.render ?? (
+                      <>
+                        {o.icon}
+                        <span>
+                          <Highlight text={o.label} query={q} />
+                          {o.hint && <small className="muted"> · {o.hint}</small>}
+                        </span>
+                      </>
+                    )}
                     {o.badge && <span className="badge badge-accent">{o.badge}</span>}
                   </label>
                 </div>
@@ -775,6 +785,18 @@ export function AssetAmounts({
 export function FormBadge({ form }: { form: FormId }) {
   const { t } = useI18n();
   return <span className={`badge badge-${form}`}>{t(`form.${form}`)}</span>;
+}
+
+/** An on / off switch with its label; the whole pill is the control. */
+export function Switch({ checked, onChange, label, title }: { checked: boolean; onChange: (v: boolean) => void; label: string; title?: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} className={`switch ${checked ? 'on' : ''}`} onClick={() => onChange(!checked)} title={title}>
+      <span className="switch-track" aria-hidden="true">
+        <span className="switch-thumb" />
+      </span>
+      <span className="switch-label">{label}</span>
+    </button>
+  );
 }
 
 export function Segmented<T extends string>({

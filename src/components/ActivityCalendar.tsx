@@ -29,14 +29,23 @@ const yearRange = (y: number) => rangeOf(new Date(y, 0, 1), new Date(y, 11, 31, 
  * per month or per year. With `pick`, a day, month or year can be clicked to choose it as
  * a time range (clicking the chosen one again clears it); the chosen one is outlined.
  */
-export function ActivityCalendar({ txs, pick }: { txs: Transaction[]; pick?: { value: CalendarRange; onChange: (r: CalendarRange | null) => void } }) {
+export function ActivityCalendar({
+  txs,
+  scope = txs,
+  pick,
+}: {
+  txs: Transaction[];
+  /** the whole list `txs` was found in: its years stay offered when a search narrows `txs` */
+  scope?: Transaction[];
+  pick?: { value: CalendarRange; onChange: (r: CalendarRange | null) => void };
+}) {
   const { t, tn, locale, date } = useI18n();
   const [mode, setMode] = usePref<Mode>('calendarMode', 'days');
   const years = useMemo(() => {
     const s = new Set<number>([new Date().getFullYear()]);
-    for (const x of txs) s.add(new Date(x.date).getFullYear());
+    for (const x of scope) s.add(new Date(x.date).getFullYear());
     return [...s].sort((a, b) => a - b);
-  }, [txs]);
+  }, [scope]);
   const [year, setYear] = useState(years[years.length - 1]);
 
   const counts = useMemo(() => {
