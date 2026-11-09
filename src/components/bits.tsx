@@ -542,8 +542,26 @@ export function MultiSelect({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, ref);
+  // the list opens under its button (to its left or right edge, as the toolbar wants); whatever the
+  // layout (a phone wraps the filters), it is moved back inside the window
+  useLayoutEffect(() => {
+    const el = pop.current;
+    if (!open || !el) return;
+    const fit = () => {
+      el.style.transform = '';
+      const r = el.getBoundingClientRect();
+      // not innerWidth: on a phone a list sticking out widens the window it would be measured by
+      const vw = document.documentElement.clientWidth;
+      const shift = r.left < 8 ? 8 - r.left : r.right > vw - 8 ? vw - 8 - r.right : 0;
+      if (shift) el.style.transform = `translateX(${Math.round(shift)}px)`;
+    };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+  }, [open]);
 
   const selected = new Set(value);
   const shown = options.filter((o) => matchesAny(q, o.label, o.hint));
@@ -565,7 +583,7 @@ export function MultiSelect({
         <Icon name="chevronDown" size={16} />
       </button>
       {open && (
-        <div className="multiselect-pop">
+        <div className="multiselect-pop" ref={pop}>
           {searchable && (
             <div className="multiselect-search">
               <SearchField value={q} onChange={setQ} placeholder={t('filter.search')} autoFocus />

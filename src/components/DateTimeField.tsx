@@ -14,10 +14,67 @@ function parse(value: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** The date separator of the locale's numeric dates: "." (ru, uk) or "/" (en-GB). */
+function dateSeparator(locale: string) {
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).formatToParts(new Date(2024, 0, 2)).find((p) => p.type === 'literal')?.value.trim() || '.';
+}
+
+/** A date as the field's text: "09.11.2026 14:30" (day first in every language the app has). */
+const toText = (d: Date, sep: string) => `${pad(d.getDate())}${sep}${pad(d.getMonth() + 1)}${sep}${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+// the parts of the text and what follows each: day.month.year hours:minutes
+const PARTS = [2, 2, 4, 2, 2];
+
+/**
+ * Typed text -> the field's shape: digits fill day, month, year, hours and minutes in turn and the
+ * separators come by themselves; a separator typed after a single digit pads it ("9." -> "09."),
+ * a two-digit year before the time becomes 20xx.
+ */
+function mask(raw: string, sep: string) {
+  const after = [sep, sep, ' ', ':', ''];
+  const parts: string[] = [];
+  let cur = '';
+  for (const ch of raw) {
+    const i = parts.length;
+    if (i >= PARTS.length) break;
+    if (/\d/.test(ch)) {
+      cur += ch;
+      if (cur.length === PARTS[i]) (parts.push(cur), (cur = ''));
+    } else if (cur) {
+      // a separator ends a part typed short
+      parts.push(i === 2 ? (cur.length === 2 ? `20${cur}` : cur) : cur.padStart(PARTS[i], '0'));
+      cur = '';
+    }
+  }
+  let out = parts.map((x, i) => x + (i < PARTS.length - 1 ? after[i] : '')).join('');
+  if (cur) out += cur;
+  return out;
+}
+
+/**
+ * The field's text -> a "YYYY-MM-DDTHH:mm" value, or null while it is not a whole, real date.
+ * `short` also takes a two-digit year (20xx): only once the typing is over, not to jump to 2020
+ * on the way to 2025.
+ */
+function fromText(text: string, time: string, short = false): string | null {
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(text.trim());
+  const m = iso ? [iso[3], iso[2], iso[1], iso[4], iso[5]] : (short ? /^(\d{2})\D(\d{2})\D(\d{2}|\d{4})(?:\s+(\d{2}):(\d{2}))?$/ : /^(\d{2})\D(\d{2})\D(\d{4})(?:\s+(\d{2}):(\d{2}))?$/).exec(text.trim())?.slice(1);
+  if (!m) return null;
+  const [day, month, y] = m.slice(0, 3).map(Number);
+  const year = m[2].length === 2 ? 2000 + y : y;
+  const [h, min] = m[3] !== undefined ? [Number(m[3]), Number(m[4])] : time.split(':').map(Number);
+  if (h > 23 || min > 59) return null;
+  const d = new Date(year, month - 1, day, h, min);
+  // 31.02 rolls over into March: not a real date
+  if (d.getDate() !== day || d.getMonth() !== month - 1) return null;
+  return toLocalInput(d);
+}
+
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 /**
- * A date and time picker in the app's own look: a button with the formatted value that
+ * A date and time picker in the app's own look: a text field that takes a typed
+ * "DD.MM.YYYY HH:mm" (the calendar follows what is typed) and a calendar button that
  * opens a month calendar and an hour:minute field. The value is a local "YYYY-MM-DDTHH:mm"
  * string ('' = not set), the same as a datetime-local input. Picking a day keeps the time
  * already set, or takes `defaultTime` ("00:00" for a range start, "23:59" for its end).
@@ -48,10 +105,51 @@ export function DateTimeField({
   const [open, setOpen] = useState(false);
   const [shown, setShown] = useState(() => current ?? new Date());
   const ref = useRef<HTMLDivElement>(null);
-  const btn = useRef<HTMLButtonElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, ref, pop);
+
+  // what is being typed; null shows the value itself (as it is, or after it changed elsewhere)
+  const sep = useMemo(() => dateSeparator(locale), [locale]);
+  const [text, setText] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+  const pattern = t('time.pattern').replaceAll('.', sep);
+  const shownText = text ?? (current ? toText(current, sep) : '');
+  const yearOk = (v: string) => {
+    const y = Number(v.slice(0, 4));
+    return y >= minYear && y <= maxYear;
+  };
+  const timeOf = () => (current ? `${pad(current.getHours())}:${pad(current.getMinutes())}` : defaultTime);
+  // typing is over (the field is left, Enter): a short year counts too, and the text shows the value again
+  const finish = () => {
+    const v = text !== null && fromText(text, timeOf(), true);
+    if (v && yearOk(v) && v !== value) onChange(v);
+    setText(null);
+  };
+  const type = (raw: string) => {
+    const time = timeOf();
+    // a pasted "2026-11-09 14:30" is taken whole
+    const pasted = /^\d{4}-\d{2}-\d{2}/.test(raw.trim()) ? fromText(raw, time) : null;
+    // typing on: shape it; deleting: leave it as it is
+    const next = pasted ? toText(new Date(pasted), sep) : raw.length > shownText.length ? mask(raw, sep) : raw;
+    setText(next);
+    if (!next.trim()) return clearable && value && onChange('');
+    const v = pasted ?? fromText(next, time);
+    if (!v || !yearOk(v)) return;
+    if (v !== value) onChange(v);
+    // the calendar shows the typed month
+    const d = new Date(v);
+    setShown(new Date(d.getFullYear(), d.getMonth(), 1));
+    setView('days');
+  };
+  const openPicker = () => {
+    const start = current ?? new Date();
+    setShown(new Date(Math.min(maxYear, Math.max(minYear, start.getFullYear())), start.getMonth(), 1));
+    setView('days');
+    setOpen(true);
+  };
 
   const weekdays = useMemo(() => {
     const f = new Intl.DateTimeFormat(locale, { weekday: 'short' });
@@ -71,6 +169,7 @@ export function DateTimeField({
   // the time is typed freely and applied when the field is left (or Enter)
   const [draft, setDraft] = useState<{ h: string; m: string } | null>(null);
   const applyTime = (h: string | number, m: string | number) => {
+    setText(null);
     const base = current ?? new Date(shown.getFullYear(), shown.getMonth(), 1);
     const hours = Math.min(23, Math.max(0, Number(h) || 0));
     const minutes = Math.min(59, Math.max(0, Number(m) || 0));
@@ -91,11 +190,11 @@ export function DateTimeField({
     onBlur: commitTime,
     onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && commitTime(),
   });
-  const pickDay = (d: Date) => onChange(toLocalInput(new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(hh), Number(mm))));
+  const pickDay = (d: Date) => (setText(null), input.current?.blur(), onChange(toLocalInput(new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(hh), Number(mm)))));
   // days -> (title) months of a year -> (title) years; picking a year or a month goes back down
   const [view, setView] = useState<'days' | 'months' | 'years'>('days');
   // the time columns sit beside the calendar, or under it when the window is narrow
-  const place = useFloating(open, btn, pop, 'left', () => Math.min(innerWidth - 16, innerWidth <= 480 ? 320 : 410), [shown, view]);
+  const place = useFloating(open, box, pop, 'left', () => Math.min(innerWidth - 16, innerWidth <= 480 ? 320 : 410), [shown, view]);
   const inRange = (y: number) => y >= minYear && y <= maxYear;
   const shiftMonth = (n: number) => setShown(new Date(shown.getFullYear(), shown.getMonth() + n, 1));
   const shiftYear = (n: number) => setShown(new Date(Math.min(maxYear, Math.max(minYear, shown.getFullYear() + n)), shown.getMonth(), 1));
@@ -109,27 +208,58 @@ export function DateTimeField({
 
   return (
     <div className="dtf" ref={ref}>
-      <button
-        ref={btn}
-        type="button"
-        className={`select picker-btn dtf-btn ${current ? '' : 'dtf-empty'}`}
-        onClick={() => {
-          if (!open) {
-            const start = current ?? new Date();
-            setShown(new Date(Math.min(maxYear, Math.max(minYear, start.getFullYear())), start.getMonth(), 1));
-            setView('days');
-          }
-          setOpen(!open);
-        }}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={ariaLabel}
+      <div
+        ref={box}
+        className={`dtf-box ${open ? 'dtf-open' : ''} ${current && clearable ? 'dtf-has-clear' : ''}`}
+        // a click on the frame around the text goes to the text
+        onMouseDown={(e) => e.target === e.currentTarget && (e.preventDefault(), input.current?.focus())}
       >
-        <Icon name="calendar" size={16} />
-        <span className="ellipsis">{current ? dateTime(current.getTime()) : placeholder}</span>
-      </button>
+        <button
+          type="button"
+          className="dtf-cal-btn"
+          onClick={() => (open ? close() : openPicker())}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={`${ariaLabel ?? placeholder}: ${t('time.calendar')}`}
+          title={t('time.calendar')}
+        >
+          <Icon name="calendar" size={16} />
+        </button>
+        <input
+          ref={input}
+          className="dtf-input"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          spellCheck={false}
+          value={shownText}
+          // the shape to type in once it is focused, its role ("from", "to") before
+          placeholder={focused ? pattern : placeholder}
+          title={current ? dateTime(current.getTime()) : pattern}
+          aria-label={ariaLabel ? `${ariaLabel} (${pattern})` : pattern}
+          onChange={(e) => type(e.target.value)}
+          onFocus={() => setFocused(true)}
+          // a mouse click opens the calendar too; on a touch screen it is the keyboard's turn
+          onClick={() => !open && !matchMedia('(pointer: coarse)').matches && openPicker()}
+          onBlur={() => (setFocused(false), finish())}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              // keeps what was typed (or puts the value back) instead of sending a form
+              e.preventDefault();
+              finish();
+              close();
+            } else if (e.key === 'Escape' && open) {
+              e.stopPropagation();
+              close();
+            } else if (e.key === 'ArrowDown' && !open) {
+              e.preventDefault();
+              openPicker();
+            }
+          }}
+        />
+      </div>
       {current && clearable && (
-        <button type="button" className="icon-btn dtf-clear" onClick={() => onChange('')} aria-label={t('filter.clear')} title={t('filter.clear')}>
+        <button type="button" className="icon-btn dtf-clear" onClick={() => (setText(null), onChange(''))} aria-label={t('filter.clear')} title={t('filter.clear')}>
           <Icon name="close" size={14} />
         </button>
       )}

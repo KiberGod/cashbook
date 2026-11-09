@@ -4004,22 +4004,70 @@ button.cal-yearbar {
   min-width: 0;
 }
 
-.dtf-btn {
-  gap: 8px;
-  min-height: 40px !important;
-  padding-right: 32px !important;
-  /* no select arrow: the calendar icon says what it is */
-  background-image: none !important;
-  font-size: 0.92rem;
+.dtf-box {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 8px 0 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: text;
 }
 
-.dtf-btn svg {
-  color: var(--muted);
+.dtf-box.dtf-has-clear {
+  padding-right: 32px;
+}
+
+.dtf-box:focus-within,
+.dtf-box.dtf-open {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dtf-cal-btn {
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
 }
 
-.dtf-empty {
+.dtf-cal-btn:hover,
+.dtf-cal-btn[aria-expanded='true'] {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* beats the form-field look a .field gives to every input inside it */
+.dtf input.dtf-input.dtf-input.dtf-input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0 !important;
+  max-width: none;
+  padding: 8px 0 8px 4px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  outline: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.dtf input.dtf-input::placeholder {
   color: var(--muted);
+  opacity: 1;
 }
 
 .dtf-clear {
@@ -6349,10 +6397,6 @@ a.txd-account:hover {
   .tab-close {
     opacity: 1;
   }
-
-  .topbar-add {
-    flex-shrink: 0;
-  }
 }
 
 /* in the app the dimming covers everything but the tab strip (it stays over it), and the dialog
@@ -6637,4 +6681,24 @@ body:has(.topbar) .modal-backdrop {
 /* a tab set apart at the row's far right (a contact's detective) */
 .page-tabs button.page-tab-end {
   margin-left: auto;
+}
+
+/* the main card (a contact's balance) on a phone: a row of its own, its bigger figures need the room */
+@media (max-width: 480px) {
+  .stat-accent {
+    grid-column: 1 / -1;
+  }
+}
+
+/* in a card, an amount too long for it may still break before its asset code rather than run out */
+.stat-value .amount-chip {
+  white-space: normal;
+  min-width: 0;
+}
+
+/* under 16px a phone zooms in on the focused field */
+@media (pointer: coarse) {
+  .dtf input.dtf-input.dtf-input.dtf-input {
+    font-size: 16px;
+  }
 }

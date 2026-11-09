@@ -17,7 +17,7 @@ const ru: Dict = {
   'templates.anyAmount': 'Сумма не задана',
   'templates.use': 'Создать транзакцию',
   'templates.search': 'Поиск по названию, счёту, контакту, категории…',
-  'templates.empty': 'Шаблонов пока нет. Шаблон — это заготовка транзакции: счета, сумма, категория и описание подставятся сами, останется проверить и сохранить.',
+  'templates.empty': 'Шаблонов нет.',
   'templates.noRelated': 'Шаблонов нет.',
   'templates.related': 'Связанные шаблоны',
   'templates.shown': 'Показано {n} из {all}',
@@ -111,6 +111,8 @@ const ru: Dict = {
   'time.minutes': 'Минуты',
   'time.hoursShort': 'ч',
   'time.minutesShort': 'мин',
+  'time.calendar': 'Календарь',
+  'time.pattern': 'ДД.ММ.ГГГГ ЧЧ:ММ',
   'filter.min': 'от',
   'filter.max': 'до',
 

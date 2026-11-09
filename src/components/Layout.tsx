@@ -7,7 +7,7 @@ import { APP_VERSION } from '../lib/version';
 import { href, type Route } from '../router';
 import { getIndex } from '../lib/stats';
 import { discardAndReload, flush, reload, signIn, useStore } from '../store/store';
-import { openTxForm, useUi } from '../store/ui';
+import { useUi } from '../store/ui';
 import { TabStrip } from './Tabs';
 
 export function Logo({ size = 32 }: { size?: number }) {
@@ -142,9 +142,6 @@ export function TopBar({ route }: { route: Route }) {
         <Icon name="menu" />
       </button>
       <TabStrip />
-      <button type="button" className="btn btn-primary btn-sm mobile-only topbar-add" onClick={() => openTxForm()} aria-label={t('tx.add')}>
-        <Icon name="plus" size={18} />
-      </button>
       {/* in a portal: the top bar's blur would otherwise make it the drawer's frame */}
       {drawer &&
         createPortal(

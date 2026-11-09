@@ -22,7 +22,7 @@ const en = {
   'templates.anyAmount': 'No fixed amount',
   'templates.use': 'Create transaction',
   'templates.search': 'Search by name, account, contact, category…',
-  'templates.empty': 'No templates yet. A template is a transaction prepared in advance: accounts, amount, category and description fill in by themselves, you only check and save.',
+  'templates.empty': 'No templates.',
   'templates.noRelated': 'No templates.',
   'templates.related': 'Related templates',
   'templates.shown': 'Showing {n} of {all}',
@@ -116,6 +116,8 @@ const en = {
   'time.minutes': 'Minutes',
   'time.hoursShort': 'h',
   'time.minutesShort': 'min',
+  'time.calendar': 'Calendar',
+  'time.pattern': 'DD.MM.YYYY HH:MM',
   'filter.min': 'from',
   'filter.max': 'to',
 

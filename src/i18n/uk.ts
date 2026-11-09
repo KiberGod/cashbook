@@ -17,7 +17,7 @@ const uk: Dict = {
   'templates.anyAmount': 'Суму не задано',
   'templates.use': 'Створити транзакцію',
   'templates.search': 'Пошук за назвою, рахунком, контактом, категорією…',
-  'templates.empty': 'Шаблонів поки немає. Шаблон — це заготовка транзакції: рахунки, сума, категорія й опис підставляться самі, залишиться перевірити й зберегти.',
+  'templates.empty': 'Шаблонів немає.',
   'templates.noRelated': 'Шаблонів немає.',
   'templates.related': "Пов'язані шаблони",
   'templates.shown': 'Показано {n} з {all}',
@@ -111,6 +111,8 @@ const uk: Dict = {
   'time.minutes': 'Хвилини',
   'time.hoursShort': 'год',
   'time.minutesShort': 'хв',
+  'time.calendar': 'Календар',
+  'time.pattern': 'ДД.ММ.РРРР ГГ:ХХ',
   'filter.min': 'від',
   'filter.max': 'до',
 

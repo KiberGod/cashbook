@@ -5,7 +5,9 @@ import { categoryTree, deleteTemplate, saveTemplate, saveTransaction } from '../
 import { debtEffect, getIndex, sortAccountsForPicker, type Index } from '../lib/stats';
 import { LIMITS, type Account, type Asset, type Category, type Debt, type Template, type Transaction } from '../lib/types';
 import { mutate, useStore } from '../store/store';
+import { tabHash, useTabs } from '../store/tabs';
 import { closeTemplateForm, closeTxForm, showToast, useUi } from '../store/ui';
+import { TabProvider, useTab } from './Tabs';
 import { AccountIcon, AssetIcon, AutoTextarea, Avatar, ContactChip, Field, InfoTip, Money, Picker, type Option } from './bits';
 import { DateTimeField } from './DateTimeField';
 import { NameField, useTextRules } from './forms';
@@ -49,22 +51,47 @@ function AssetChoice({ assets, value, onChange, label, disabled = false }: { ass
 
 /** Renders the global transaction editor when it is open. */
 export function TxFormHost() {
-  const form = useUi((s) => s.txForm);
+  const forms = useUi((s) => s.txForms);
   const data = useStore((s) => s.data);
-  if (!form) return null;
-  const tx = form.id ? getIndex(data).transactions.get(form.id) : undefined;
-  if (form.id && !tx) return null;
-  return <TxForm key={form.id ?? 'new'} tx={tx} prefill={form.prefill} templateId={form.templateId} />;
+  const { tabs, active } = useTabs();
+  // one editor per tab that opened one; only the shown tab's is visible, the others keep their fields
+  return (
+    <>
+      {tabs.map((tab) => {
+        const form = forms[tab.id];
+        if (!form) return null;
+        const tx = form.id ? getIndex(data).transactions.get(form.id) : undefined;
+        if (form.id && !tx) return null;
+        return (
+          <TabProvider key={tab.id} value={{ id: tab.id, hash: tabHash(tab), active: tab.id === active }}>
+            <TxForm key={form.id ?? 'new'} tx={tx} prefill={form.prefill} templateId={form.templateId} />
+          </TabProvider>
+        );
+      })}
+    </>
+  );
 }
 
 /** Renders the global template editor when it is open. */
 export function TemplateFormHost() {
-  const form = useUi((s) => s.templateForm);
+  const forms = useUi((s) => s.templateForms);
   const data = useStore((s) => s.data);
-  if (!form) return null;
-  const template = form.id ? getIndex(data).templates.get(form.id) : undefined;
-  if (form.id && !template) return null;
-  return <TxForm key={form.id ?? 'new'} template={template} prefill={form.prefill} asTemplate />;
+  const { tabs, active } = useTabs();
+  return (
+    <>
+      {tabs.map((tab) => {
+        const form = forms[tab.id];
+        if (!form) return null;
+        const template = form.id ? getIndex(data).templates.get(form.id) : undefined;
+        if (form.id && !template) return null;
+        return (
+          <TabProvider key={tab.id} value={{ id: tab.id, hash: tabHash(tab), active: tab.id === active }}>
+            <TxForm key={form.id ?? 'new'} template={template} prefill={form.prefill} asTemplate />
+          </TabProvider>
+        );
+      })}
+    </>
+  );
 }
 
 /** The fields of a transaction or a template the editor starts from (a template's amount may be unset). */
@@ -165,7 +192,9 @@ function TxForm({
   const ix = getIndex(data);
   const init: Draft = { ...prefill, ...tx, ...template };
   const editing = asTemplate ? template : tx;
-  const close = asTemplate ? closeTemplateForm : closeTxForm;
+  // this editor's own tab (it may not be the shown one when the data changes)
+  const myTab = useTab().id || undefined;
+  const close = () => (asTemplate ? closeTemplateForm(myTab) : closeTxForm(myTab));
 
   const [name, setName] = useState(init.name ?? '');
   const [date, setDate] = useState(toLocalInput(init.date ?? new Date()));
@@ -382,7 +411,7 @@ function TxForm({
       ).data,
     );
     showToast(tx ? t('tx.saved') : t('tx.created'));
-    closeTxForm();
+    close();
   };
 
   return (
@@ -483,8 +512,8 @@ function TxForm({
           )}
         </div>
       </form>
-      {del && tx && <DeleteTx tx={tx} onClose={() => setDel(false)} onDeleted={closeTxForm} />}
-      {del && template && <DeleteTemplate template={template} onClose={() => setDel(false)} onDeleted={closeTemplateForm} />}
+      {del && tx && <DeleteTx tx={tx} onClose={() => setDel(false)} onDeleted={close} />}
+      {del && template && <DeleteTemplate template={template} onClose={() => setDel(false)} onDeleted={close} />}
     </Modal>
   );
 }
