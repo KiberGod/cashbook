@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
 import { Segmented } from '../components/bits';
 import { KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
 import { PageHead, SheetsMark } from '../components/Layout';
@@ -8,9 +8,8 @@ import { LANGUAGES, useI18n, type Lang } from '../i18n';
 import { toAppError, type AppError } from '../lib/errors';
 import { settings } from '../lib/storage';
 import { ACCENTS, getAccent, getThemePref, setAccent, setThemePref, type Accent, type ThemePref } from '../lib/theme';
-import type { Data } from '../lib/types';
 import { APP_VERSION } from '../lib/version';
-import { disconnect, logout, reload, replaceAllData, setEncryption, useStore, verifyKey } from '../store/store';
+import { disconnect, logout, reload, setEncryption, useStore, verifyKey } from '../store/store';
 import { showToast } from '../store/ui';
 import { ErrorDetails } from './GateScreens';
 
@@ -144,19 +143,28 @@ function EncryptionDialog({ encrypted, onClose }: { encrypted: boolean; onClose:
   );
 }
 
-// Development-only test data generator. It lives in the git-ignored dev-local/ folder,
-// so it is absent from the repository and from production builds.
-const devSeed = import.meta.env.DEV ? import.meta.glob<{ generate: (d: Data) => Data }>('/dev-local/seed.ts') : {};
+/**
+ * Development-only tools (the test data generator) live in the git-ignored dev-local/ folder, absent
+ * from the repository. Under `npm run dev` this slot loads them; a production build has none of it.
+ */
+const DevSlot = import.meta.env.DEV
+  ? function DevSlot() {
+      const [Tools, setTools] = useState<ComponentType | null>(null);
+      useEffect(() => {
+        const load = import.meta.glob<{ DevTools: ComponentType }>('/dev-local/devtools.tsx')['/dev-local/devtools.tsx'];
+        if (load) void load().then((m) => setTools(() => m.DevTools));
+      }, []);
+      return Tools ? <Tools /> : null;
+    }
+  : null;
 
 export function SettingsPage() {
-  const { t, tn } = useI18n();
+  const { t } = useI18n();
   const title = useStore((s) => s.title);
   const refreshing = useStore((s) => s.refreshing);
   const encrypted = useStore((s) => s.encrypted);
-  const data = useStore((s) => s.data);
   const sheet = settings.getSheet();
-  const [confirm, setConfirm] = useState<'change' | 'signOut' | 'seed' | 'encryption' | null>(null);
-  const seedLoader = devSeed['/dev-local/seed.ts'] as (typeof devSeed)[string] | undefined;
+  const [confirm, setConfirm] = useState<'change' | 'signOut' | 'encryption' | null>(null);
 
   return (
     <>
@@ -240,21 +248,7 @@ export function SettingsPage() {
           </div>
         </section>
 
-        {import.meta.env.DEV && (
-          <section className="panel panel-dev">
-            <h2>{t('dev.title')}</h2>
-            <p className="muted">{t('dev.text')}</p>
-            <div className="button-row">
-              {seedLoader && (
-                <button type="button" className="btn" onClick={() => setConfirm('seed')}>
-                  <Icon name="star" size={18} />
-                  {t('dev.seed')}
-                </button>
-              )}
-            </div>
-            <p className="field-hint">{tn('dev.counts', data.transactions.length)}</p>
-          </section>
-        )}
+        {DevSlot && <DevSlot />}
       </div>
 
       {confirm === 'change' && (
@@ -277,15 +271,6 @@ export function SettingsPage() {
         />
       )}
       {confirm === 'encryption' && <EncryptionDialog encrypted={encrypted} onClose={() => setConfirm(null)} />}
-      {confirm === 'seed' && seedLoader && (
-        <ConfirmDialog
-          title={t('dev.seed')}
-          text={t('dev.seedConfirm')}
-          confirmLabel={t('dev.seed')}
-          onClose={() => setConfirm(null)}
-          onConfirm={() => void seedLoader().then((m) => replaceAllData(m.generate(data)))}
-        />
-      )}
     </>
   );
 }

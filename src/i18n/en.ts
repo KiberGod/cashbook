@@ -594,11 +594,6 @@ const en = {
   'settings.version': 'Version {v}',
   'settings.developer': 'Developer',
 
-  'dev.title': 'Development',
-  'dev.text': 'Visible only in `npm run dev`.',
-  'dev.seed': 'Fill with test data',
-  'dev.seedConfirm': 'All data in the spreadsheet will be replaced by generated test data (half a year of activity).',
-  'dev.counts': { one: '{n} transaction in the spreadsheet', other: '{n} transactions in the spreadsheet' } as Plural,
 };
 
 export type Dict = { [K in keyof typeof en]: (typeof en)[K] extends Plural ? Plural : string };

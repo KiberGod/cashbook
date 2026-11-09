@@ -1691,10 +1691,6 @@ select,
   font-size: 1rem;
 }
 
-.panel-dev {
-  border-style: dashed;
-}
-
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
