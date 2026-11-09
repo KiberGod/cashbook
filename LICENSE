@@ -1,0 +1,84 @@
+Cashbook - Proprietary License (All Rights Reserved)
+
+Copyright (c) 2026 KiberGod. All rights reserved.
+
+This repository and everything in it - the source code, its compiled and built forms, the user
+interface, texts, graphics, icons and documentation (together, the "Software") - is the exclusive
+property of the copyright holder named above (the "Author"). The Software is NOT open source. It is
+made publicly visible solely so that it can be viewed.
+
+1. NO LICENSE GRANTED
+
+   No right or license of any kind is granted to you by this notice, by the Software being publicly
+   visible, by any public deployment of it, or by implication, estoppel or otherwise. All rights not
+   expressly granted in writing by the Author are reserved.
+
+2. WHAT YOU MAY DO
+
+   a) View the source code in the repository, to the extent the hosting platform (e.g. GitHub) lets
+      you do so under its own terms of service.
+   b) Use the application deployed by the Author at its official address, as an end user, for your
+      own personal, non-commercial bookkeeping.
+
+   Nothing else is permitted.
+
+3. WHAT YOU MAY NOT DO
+
+   Without the Author's prior, express, written permission, you may not, in whole or in part, for
+   any purpose - commercial or non-commercial, private or public, paid or free:
+
+   a) copy, reproduce, download for reuse, or store copies of the Software, except as unavoidably
+      done by your browser or the hosting platform when you view it;
+   b) modify, adapt, translate, or create derivative works based on the Software;
+   c) distribute, publish, sublicense, sell, rent, lease, lend, or otherwise make the Software or any
+      part of it available to anyone;
+   d) deploy, host, run, or operate the Software or any derivative of it (including self-hosting,
+      mirrors and forks), or offer it as a service;
+   e) incorporate the Software or any part of it into any other software, product, or service;
+   f) use the Software, its code, structure, design, or any part of it to build a competing or
+      similar product;
+   g) use the Software, in whole or in part, to train, fine-tune, or evaluate any machine learning or
+      artificial intelligence model, or include it in any dataset;
+   h) remove, alter, or obscure this notice, the copyright notice, or any other proprietary notice.
+
+   Forking the repository on the hosting platform, where its terms of service allow it, grants no
+   rights beyond viewing: the restrictions above apply to every fork and every copy.
+
+4. COMMERCIAL USE
+
+   Any commercial use of the Software or any part of it - including using it in or for a business,
+   selling it, selling services based on it, or using it to generate revenue directly or indirectly -
+   is strictly prohibited unless the Author has granted a separate written commercial license.
+
+5. CONTRIBUTIONS
+
+   The Author does not accept contributions unless agreed in advance. If you nevertheless submit any
+   code, idea, or other material (for example, an issue or a pull request), you grant the Author a
+   perpetual, worldwide, irrevocable, royalty-free right to use, modify, and distribute it, and you
+   acquire no rights in the Software by doing so.
+
+6. THIRD-PARTY COMPONENTS AND TRADEMARKS
+
+   Third-party libraries used by the Software remain under their own licenses. Names, logos, and
+   trademarks of banks, payment services, cryptocurrencies, and other third parties shown in the
+   Software belong to their respective owners and are used for identification only.
+
+7. TERMINATION
+
+   Any use of the Software in breach of this notice is unauthorized and infringes the Author's
+   copyright. On any breach you must immediately stop all use and destroy every copy of the Software
+   and its derivatives in your possession. The Author reserves all rights and remedies available
+   under applicable law.
+
+8. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+   NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+   NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, LOSS OF DATA, OR
+   OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+   CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+9. PERMISSIONS
+
+   To ask for any permission not granted above, contact the Author through the GitHub profile
+   "KiberGod". Permission is valid only if given in writing by the Author.
