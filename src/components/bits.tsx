@@ -479,8 +479,11 @@ export function useFloating(open: boolean, anchor: RefObject<HTMLElement | null>
     const measure = () => {
       if (!anchor.current) return;
       const r = anchor.current.getBoundingClientRect();
-      const h = pop.current?.offsetHeight ?? 0;
       const w = width ? width(r.width) : (pop.current?.offsetWidth ?? 0);
+      // its height at the width it will have: measured narrower it wraps taller, is placed by that
+      // and then jumps once the width arrives
+      if (width && pop.current) pop.current.style.width = `${w}px`;
+      const h = pop.current?.offsetHeight ?? 0;
       const left = Math.max(8, Math.min(align === 'left' ? r.left : r.right - w, innerWidth - w - 8));
       const below = r.bottom + 4;
       const top = below + h > innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : below;

@@ -324,13 +324,9 @@ export function AccountDetail({ id }: { id: string }) {
         title={account.name}
         actions={
           <>
-            <button type="button" className="btn btn-primary" onClick={() => openTxForm({ prefill: { fromId: id } })}>
-              <Icon name="arrowOut" size={18} />
-              {t('accounts.send')}
-            </button>
-            <button type="button" className="btn" onClick={() => openTxForm({ prefill: { toId: id } })}>
-              <Icon name="arrowIn" size={18} />
-              {t('accounts.receive')}
+            <button type="button" className="btn btn-primary" onClick={() => openTxForm()}>
+              <Icon name="plus" size={18} />
+              {t('tx.add')}
             </button>
             <button type="button" className="btn" onClick={() => setEdit(true)}>
               <Icon name="edit" size={18} />

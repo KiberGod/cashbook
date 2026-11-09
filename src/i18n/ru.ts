@@ -347,8 +347,6 @@ const ru: Dict = {
   'accounts.page.stats': 'Статистика',
   'accounts.page.activity': 'Транзакции',
   'accounts.createdWith': 'Начальный баланс',
-  'accounts.send': 'Отправить',
-  'accounts.receive': 'Получить',
   'accounts.contact': 'Контакт',
   'accounts.form': 'Форма хранения средств',
   'accounts.asset': 'Актив',

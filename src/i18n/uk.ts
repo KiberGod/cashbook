@@ -347,8 +347,6 @@ const uk: Dict = {
   'accounts.page.stats': 'Статистика',
   'accounts.page.activity': 'Транзакції',
   'accounts.createdWith': 'Початковий баланс',
-  'accounts.send': 'Надіслати',
-  'accounts.receive': 'Отримати',
   'accounts.contact': 'Контакт',
   'accounts.form': 'Форма зберігання коштів',
   'accounts.asset': 'Актив',

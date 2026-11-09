@@ -6399,8 +6399,8 @@ a.txd-account:hover {
   }
 }
 
-/* in the app the dimming covers everything but the tab strip (it stays over it), and the dialog
-   itself keeps below the strip */
+/* in the app the tab strip stays over the dimming (dimmed on its own, see .topbar::after), and the
+   dialog itself keeps below the strip */
 body:has(.topbar) .modal-backdrop {
   padding-top: calc(48px + 16px + env(safe-area-inset-top));
 }
@@ -6701,4 +6701,18 @@ body:has(.topbar) .modal-backdrop {
   .dtf input.dtf-input.dtf-input.dtf-input {
     font-size: 16px;
   }
+}
+
+/* the tab strip sits above the dialogs (its tabs stay clickable) but is dimmed like the rest of
+   the page while the shown tab has a dialog open */
+body:has(.modal-backdrop:not([hidden])) .topbar::after {
+  content: '';
+  position: absolute;
+  /* down over the strip's bottom border too (it lies outside the box an inset of 0 covers) */
+  inset: 0 0 -1px;
+  /* over the tabs too (they are still clicked through it) */
+  z-index: 20;
+  background: rgb(10 14 18 / 45%);
+  pointer-events: none;
+  animation: fade-in 0.15s ease-out;
 }

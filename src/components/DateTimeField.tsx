@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FocusEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -128,12 +128,39 @@ export function DateTimeField({
     if (v && yearOk(v) && v !== value) onChange(v);
     setText(null);
   };
-  const type = (raw: string) => {
+  // where the caret goes after a digit typed over another one (set once the new text is in)
+  const caret = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (caret.current === null || !input.current) return;
+    input.current.setSelectionRange(caret.current, caret.current);
+    caret.current = null;
+  });
+  /**
+   * A digit typed inside a whole-shaped text takes the place of the digit after the caret (the
+   * separators are stepped over) and the caret moves on to the next one, like on a paper form.
+   */
+  const overwrite = (e: FormEvent<HTMLInputElement>) => {
+    const ch = (e.nativeEvent as InputEvent).data;
+    const el = e.currentTarget;
+    const old = shownText;
+    const at = el.selectionStart ?? old.length;
+    if (!ch || !/^\d$/.test(ch) || at >= old.length || mask(old, sep) !== old) return;
+    let i = at;
+    while (i < old.length && !/\d/.test(old[i])) i++;
+    if (i >= old.length) return;
+    e.preventDefault();
+    let next = i + 1;
+    while (next < old.length && !/\d/.test(old[next])) next++;
+    caret.current = Math.min(next, old.length);
+    type(old.slice(0, i) + ch + old.slice(i + 1), true);
+  };
+  const type = (raw: string, shaped = false) => {
     const time = timeOf();
     // a pasted "2026-11-09 14:30" is taken whole
     const pasted = /^\d{4}-\d{2}-\d{2}/.test(raw.trim()) ? fromText(raw, time) : null;
-    // typing on: shape it; deleting: leave it as it is
-    const next = pasted ? toText(new Date(pasted), sep) : raw.length > shownText.length ? mask(raw, sep) : raw;
+    // typing on at the end: shape it; deleting or typing in the middle: leave it as it is (and the caret where it is)
+    const atEnd = (input.current?.selectionStart ?? raw.length) >= raw.length;
+    const next = pasted ? toText(new Date(pasted), sep) : !shaped && atEnd && raw.length > shownText.length ? mask(raw, sep) : raw;
     setText(next);
     if (!next.trim()) return clearable && value && onChange('');
     const v = pasted ?? fromText(next, time);
@@ -237,6 +264,7 @@ export function DateTimeField({
           placeholder={focused ? pattern : placeholder}
           title={current ? dateTime(current.getTime()) : pattern}
           aria-label={ariaLabel ? `${ariaLabel} (${pattern})` : pattern}
+          onBeforeInput={overwrite}
           onChange={(e) => type(e.target.value)}
           onFocus={() => setFocused(true)}
           // a mouse click opens the calendar too; on a touch screen it is the keyboard's turn

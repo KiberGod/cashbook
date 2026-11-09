@@ -347,8 +347,6 @@ const en = {
   'accounts.page.stats': 'Statistics',
   'accounts.page.activity': 'Transactions',
   'accounts.createdWith': 'Starting balance',
-  'accounts.send': 'Send',
-  'accounts.receive': 'Receive',
   'accounts.contact': 'Contact',
   'accounts.form': 'Form of money',
   'accounts.asset': 'Asset',
