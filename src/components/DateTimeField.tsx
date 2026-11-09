@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FocusEvent, type FormEvent, type KeyboardEvent } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ChangeEvent, type FocusEvent, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -22,59 +22,63 @@ function dateSeparator(locale: string) {
 /** A date as the field's text: "09.11.2026 14:30" (day first in every language the app has). */
 const toText = (d: Date, sep: string) => `${pad(d.getDate())}${sep}${pad(d.getMonth() + 1)}${sep}${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-// the parts of the text and what follows each: day.month.year hours:minutes
-const PARTS = [2, 2, 4, 2, 2];
+/**
+ * The field always has the whole shape "dd.mm.yyyy hh:mm": 12 digit places (a digit, or null while
+ * not typed yet) at these positions of the text; the rest are separators.
+ */
+const SLOTS = [0, 1, 3, 4, 6, 7, 8, 9, 11, 12, 14, 15];
+// where each part (day, month, year, hours, minutes) starts, in digit places
+const PART_START = [0, 2, 4, 8, 10];
+type Digits = (string | null)[];
+const BLANK: Digits = Array(12).fill(null);
+
+const digitsOf = (d: Date, sep: string): Digits => SLOTS.map((i) => toText(d, sep)[i]);
+
+/** The digits -> the field's text, with the letters of `pattern` ("дд.мм.гггг чч:мм") where none is typed yet. */
+const render = (digits: Digits, pattern: string) => {
+  const chars = [...pattern];
+  SLOTS.forEach((at, i) => digits[i] !== null && (chars[at] = digits[i]!));
+  return chars.join('');
+};
+
+const num = (digits: Digits, from: number, n: number) => Number(digits.slice(from, from + n).join(''));
 
 /**
- * Typed text -> the field's shape: digits fill day, month, year, hours and minutes in turn and the
- * separators come by themselves; a separator typed after a single digit pads it ("9." -> "09."),
- * a two-digit year before the time becomes 20xx.
+ * The digits -> a "YYYY-MM-DDTHH:mm" value; null while some are missing or it is not a real date.
+ * No time typed at all takes `time` (the one set before, or the field's default).
  */
-function mask(raw: string, sep: string) {
-  const after = [sep, sep, ' ', ':', ''];
-  const parts: string[] = [];
-  let cur = '';
-  for (const ch of raw) {
-    const i = parts.length;
-    if (i >= PARTS.length) break;
-    if (/\d/.test(ch)) {
-      cur += ch;
-      if (cur.length === PARTS[i]) (parts.push(cur), (cur = ''));
-    } else if (cur) {
-      // a separator ends a part typed short
-      parts.push(i === 2 ? (cur.length === 2 ? `20${cur}` : cur) : cur.padStart(PARTS[i], '0'));
-      cur = '';
-    }
-  }
-  let out = parts.map((x, i) => x + (i < PARTS.length - 1 ? after[i] : '')).join('');
-  if (cur) out += cur;
-  return out;
-}
-
-/**
- * The field's text -> a "YYYY-MM-DDTHH:mm" value, or null while it is not a whole, real date.
- * `short` also takes a two-digit year (20xx): only once the typing is over, not to jump to 2020
- * on the way to 2025.
- */
-function fromText(text: string, time: string, short = false): string | null {
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(text.trim());
-  const m = iso ? [iso[3], iso[2], iso[1], iso[4], iso[5]] : (short ? /^(\d{2})\D(\d{2})\D(\d{2}|\d{4})(?:\s+(\d{2}):(\d{2}))?$/ : /^(\d{2})\D(\d{2})\D(\d{4})(?:\s+(\d{2}):(\d{2}))?$/).exec(text.trim())?.slice(1);
-  if (!m) return null;
-  const [day, month, y] = m.slice(0, 3).map(Number);
-  const year = m[2].length === 2 ? 2000 + y : y;
-  const [h, min] = m[3] !== undefined ? [Number(m[3]), Number(m[4])] : time.split(':').map(Number);
+function fromDigits(digits: Digits, time: string): string | null {
+  if (digits.slice(0, 8).some((x) => x === null)) return null;
+  const noTime = digits.slice(8).every((x) => x === null);
+  if (!noTime && digits.slice(8).some((x) => x === null)) return null;
+  const [h, min] = noTime ? time.split(':').map(Number) : [num(digits, 8, 2), num(digits, 10, 2)];
+  const day = num(digits, 0, 2);
+  const month = num(digits, 2, 2);
   if (h > 23 || min > 59) return null;
-  const d = new Date(year, month - 1, day, h, min);
+  const d = new Date(num(digits, 4, 4), month - 1, day, h, min);
   // 31.02 rolls over into March: not a real date
   if (d.getDate() !== day || d.getMonth() !== month - 1) return null;
   return toLocalInput(d);
 }
 
+/** Pasted text -> a date: "2026-11-09 14:30", "09.11.2026 14:30" or "9.11.26" (then at `time`); null if it is none of these. */
+function fromPaste(text: string, time: string): Date | null {
+  const t = text.trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2}))?/.exec(t);
+  const dmy = /^(\d{1,2})\D(\d{1,2})\D(\d{2}|\d{4})(?:[ ,T]+(\d{1,2}):(\d{2}))?$/.exec(t);
+  const m = iso ? [iso[3], iso[2], iso[1], iso[4], iso[5]] : dmy?.slice(1);
+  if (!m) return null;
+  const [day, month, y] = m.slice(0, 3).map(Number);
+  const [th, tm] = m[3] !== undefined ? [m[3], m[4]] : time.split(':');
+  const d = new Date(y < 100 ? 2000 + y : y, month - 1, day, Number(th), Number(tm));
+  return d.getDate() === day && d.getMonth() === month - 1 ? d : null;
+}
+
 const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 /**
- * A date and time picker in the app's own look: a text field that takes a typed
- * "DD.MM.YYYY HH:mm" (the calendar follows what is typed) and a calendar button that
+ * A date and time picker in the app's own look: a text field in the shape "dd.mm.yyyy hh:mm"
+ * whose digits are typed over one by one (the calendar follows them) and a calendar button that
  * opens a month calendar and an hour:minute field. The value is a local "YYYY-MM-DDTHH:mm"
  * string ('' = not set), the same as a datetime-local input. Picking a day keeps the time
  * already set, or takes `defaultTime` ("00:00" for a range start, "23:59" for its end).
@@ -111,108 +115,174 @@ export function DateTimeField({
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, ref, pop);
 
-  // what is being typed; null shows the value itself (as it is, or after it changed elsewhere)
+  // what is being typed (digit by digit); null shows the value itself
   const sep = useMemo(() => dateSeparator(locale), [locale]);
-  const [text, setText] = useState<string | null>(null);
+  const pattern = t('time.pattern').toLowerCase().replaceAll('.', sep);
+  const [draft, setDraftState] = useState<Digits | null>(null);
+  const draftRef = useRef(draft);
+  const setDraft = (d: Digits | null) => ((draftRef.current = d), setDraftState(d));
+  // the digit place the next digit goes to: shown selected, so it is clear which digit changes
+  const [pos, setPosState] = useState(0);
+  const posRef = useRef(0);
+  const setPos = (p: number) => ((posRef.current = Math.max(0, Math.min(11, p))), setPosState(posRef.current));
   const [focused, setFocused] = useState(false);
-  const pattern = t('time.pattern').replaceAll('.', sep);
-  const shownText = text ?? (current ? toText(current, sep) : '');
+  // the user's own selection of more than one character (e.g. Ctrl+A) is left alone
+  const wide = useRef(false);
+  // a press of the pointer is placing the caret: the browser does it, the digit there is taken on release
+  const pressing = useRef(false);
   const yearOk = (v: string) => {
     const y = Number(v.slice(0, 4));
     return y >= minYear && y <= maxYear;
   };
   const timeOf = () => (current ? `${pad(current.getHours())}:${pad(current.getMinutes())}` : defaultTime);
-  // typing is over (the field is left, Enter): a short year counts too, and the text shows the value again
-  const finish = () => {
-    const v = text !== null && fromText(text, timeOf(), true);
-    if (v && yearOk(v) && v !== value) onChange(v);
-    setText(null);
-  };
-  // a whole date (or date and time) is typed but it is not a real one, or out of the allowed years:
-  // shown in red, and put back to the value when the field is left
-  const typed = text !== null && fromText(text, timeOf(), true);
-  const invalid = text !== null && (text.length === 10 || text.length >= 16) && !(typed && yearOk(typed));
-  // where the caret goes after a digit typed over another one (set once the new text is in)
-  const caret = useRef<number | null>(null);
+  const digits = draft ?? (focused ? (current ? digitsOf(current, sep) : BLANK) : null);
+  const typedValue = draft && fromDigits(draft, timeOf());
+  const blank = !!digits && digits.every((x) => x === null);
+  // a whole date that is not a real one (or not in the allowed years); after the field is left, also a half-typed one
+  const dateTyped = !!draft && draft.slice(0, 8).every((x) => x !== null) && (draft.slice(8).every((x) => x !== null) || draft.slice(8).every((x) => x === null));
+  const invalid = !!draft && !blank && !(typedValue && yearOk(typedValue)) && (dateTyped || !focused);
+  const shownText = digits ? render(digits, pattern) : current ? toText(current, sep) : '';
+
+  // the value we gave out last: a value changed from outside (the calendar, a "reset filters") drops what was typed
+  const sent = useRef(value);
   useLayoutEffect(() => {
-    if (caret.current === null || !input.current) return;
-    input.current.setSelectionRange(caret.current, caret.current);
-    caret.current = null;
-  });
-  /**
-   * Typing inside the text works part by part (day, month, year, hours, minutes):
-   * - a digit in a whole part takes the place of the digit after the caret, and the caret moves on
-   *   to the next digit (the separators are stepped over), like on a paper form;
-   * - a digit in a part that is short (one was rubbed out) is put in, to fill it up again;
-   * - a separator typed before one steps over it; other non-digits are not let in.
-   * At the end of the text, and over a selection, the input does it its own way.
-   */
-  const typeInside = (e: FormEvent<HTMLInputElement>) => {
-    const ch = (e.nativeEvent as InputEvent).data;
-    const el = e.currentTarget;
-    const old = el.value;
-    const at = el.selectionStart;
-    if (!ch || ch.length !== 1 || at === null || at !== el.selectionEnd || at >= old.length) return;
-    if (!/\d/.test(ch)) {
-      // the separators are already in place: one typed before a separator steps over it, anything else is dropped
-      e.preventDefault();
-      if (!/\d/.test(old[at])) el.setSelectionRange(at + 1, at + 1);
-      return;
-    }
-    const runs = [...old.matchAll(/\d+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
-    if (runs.length > PARTS.length) return;
-    const full = (k: number) => runs[k].end - runs[k].start >= PARTS[k];
-    // the part the caret is in (or at the edge of), else the next one
-    let k = runs.findIndex((r) => at >= r.start && at <= r.end);
-    if (k < 0) k = runs.findIndex((r) => r.start >= at);
-    if (k < 0 || !full(k)) return;
-    let pos = at;
-    // at the end of a whole part: on into the next one
-    if (at === runs[k].end) {
-      k++;
-      if (!runs[k]) return;
-      pos = runs[k].start;
-      if (!full(k)) {
-        e.preventDefault();
-        caret.current = pos + 1;
-        type(old.slice(0, pos) + ch + old.slice(pos), true);
-        return;
-      }
-    }
-    e.preventDefault();
-    caret.current = pos + 1 === runs[k].end && runs[k + 1] ? runs[k + 1].start : pos + 1;
-    type(old.slice(0, pos) + ch + old.slice(pos + 1), true);
-  };
-  /** Backspace / Delete next to a separator rub out the digit beyond it instead of doing nothing. */
-  const eraseOverSeparator = (e: KeyboardEvent<HTMLInputElement>) => {
-    const el = e.currentTarget;
-    const old = el.value;
-    const at = el.selectionStart;
-    // at the end of the text Backspace rubs out separators as usual
-    if (at === null || at !== el.selectionEnd || (e.key === 'Backspace' && at >= old.length)) return;
-    const i = e.key === 'Backspace' ? at - 2 : at + 1;
-    const sepAt = e.key === 'Backspace' ? at - 1 : at;
-    if (i < 0 || i >= old.length || /\d/.test(old[sepAt] ?? '') || !/\d/.test(old[i])) return;
-    e.preventDefault();
-    caret.current = e.key === 'Backspace' ? i : at + 1;
-    type(old.slice(0, i) + old.slice(i + 1), true);
-  };
-  const type = (raw: string, shaped = false) => {
-    const time = timeOf();
-    // a pasted "2026-11-09 14:30" is taken whole
-    const pasted = /^\d{4}-\d{2}-\d{2}/.test(raw.trim()) ? fromText(raw, time) : null;
-    // typing on at the end: shape it; deleting or typing in the middle: leave it as it is (and the caret where it is)
-    const atEnd = (input.current?.selectionStart ?? raw.length) >= raw.length;
-    const next = pasted ? toText(new Date(pasted), sep) : !shaped && atEnd && raw.length > shownText.length ? mask(raw, sep) : raw;
-    setText(next);
-    if (!next.trim()) return clearable && value && onChange('');
-    const v = pasted ?? fromText(next, time);
-    if (!v || !yearOk(v)) return;
+    if (value === sent.current) return;
+    sent.current = value;
+    const d = parse(value);
+    setDraft(document.activeElement === input.current ? (d ? digitsOf(d, sep) : [...BLANK]) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  const send = (v: string) => {
+    sent.current = v;
     if (v !== value) onChange(v);
+  };
+
+  /** A changed set of digits: shown as typed, and given out once it is a whole, allowed date. */
+  const apply = (next: Digits) => {
+    setDraft(next);
+    if (next.every((x) => x === null)) return clearable && send('');
+    const v = fromDigits(next, timeOf());
+    if (!v || !yearOk(v)) return;
+    send(v);
     // the calendar shows the typed month
     const d = new Date(v);
     setShown(new Date(d.getFullYear(), d.getMonth(), 1));
     setView('days');
+  };
+  const working = () => [...(draftRef.current ?? (current ? digitsOf(current, sep) : BLANK))];
+
+  /**
+   * A digit takes the place of the selected one and the selection moves on to the next digit
+   * (over the separators). A first digit that can't start its part fills it at once: "7" in the
+   * day gives "07", in the hours "07" too. A separator jumps to the next part.
+   */
+  const typeChar = (ch: string) => {
+    wide.current = false;
+    const next = working();
+    let p = posRef.current;
+    if (/\d/.test(ch)) {
+      const part = PART_START.indexOf(p);
+      const max = [3, 1, 9, 2, 5][part];
+      if (part >= 0 && part !== 2 && Number(ch) > max) {
+        next[p] = '0';
+        next[p + 1] = ch;
+        p += 2;
+      } else {
+        next[p] = ch;
+        p += 1;
+      }
+      apply(next);
+      setPos(Math.min(p, 11));
+    } else if (/[.,/\-\s:]/.test(ch)) {
+      const nextPart = PART_START.find((x) => x > p);
+      if (nextPart !== undefined) setPos(nextPart);
+    }
+  };
+  /** Pasted text: a whole date is taken at once, otherwise its digits fill the places from the selected one. */
+  const paste = (text: string) => {
+    wide.current = false;
+    const d = fromPaste(text, timeOf());
+    if (d) {
+      apply(digitsOf(d, sep));
+      setPos(11);
+      return;
+    }
+    const next = working();
+    let p = posRef.current;
+    for (const ch of text.replace(/\D/g, '')) if (p < 12) next[p++] = ch;
+    apply(next);
+    setPos(Math.min(p, 11));
+  };
+  /** Ctrl+A and Backspace / Delete: the field is emptied (it then goes back to the value if one is required). */
+  const clearAll = () => {
+    wide.current = false;
+    apply([...BLANK]);
+    setPos(0);
+  };
+
+  // the input's own editing is replaced: the text always keeps its shape, digits are changed, never rubbed out
+  const handler = useRef<(e: InputEvent) => void>(() => {});
+  handler.current = (e: InputEvent) => {
+    const el = input.current!;
+    const many = (el.selectionEnd ?? 0) - (el.selectionStart ?? 0) > 1;
+    if (e.inputType === 'insertCompositionText') return; // can't be stopped; the controlled value puts it back
+    e.preventDefault();
+    if (e.inputType.startsWith('insert')) {
+      const data = e.data ?? e.dataTransfer?.getData('text/plain') ?? '';
+      if (many && data.length === 1 && /\d/.test(data)) setPos(slotAt(el.selectionStart ?? 0));
+      if (data.length > 1 || e.inputType === 'insertFromPaste') paste(data);
+      else if (data) typeChar(data);
+    } else if (e.inputType.startsWith('delete')) {
+      // a digit is not rubbed out: Backspace steps back to the digit before, to type it over
+      if (many) clearAll();
+      else if (e.inputType.includes('Backward')) setPos(posRef.current - 1);
+    }
+  };
+  useLayoutEffect(() => {
+    const el = input.current!;
+    const on = (e: Event) => handler.current(e as InputEvent);
+    el.addEventListener('beforeinput', on);
+    return () => el.removeEventListener('beforeinput', on);
+  }, []);
+  // the selected digit follows `pos` while the field is focused
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!focused || !el || wide.current || pressing.current || document.activeElement !== el) return;
+    el.setSelectionRange(SLOTS[pos], SLOTS[pos] + 1);
+  });
+  /** The digit place at (or next to) a text position: the digit right of it, else the one left of it. */
+  const slotAt = (at: number) => {
+    const exact = SLOTS.indexOf(at);
+    if (exact >= 0) return exact;
+    const left = SLOTS.indexOf(at - 1);
+    if (left >= 0) return left;
+    const i = SLOTS.findIndex((x) => x > at);
+    return i < 0 ? 11 : i;
+  };
+  /** A click or a selection made by the user: the digit there is the one to change. */
+  const onSelect = () => {
+    const el = input.current;
+    if (!el || document.activeElement !== el || pressing.current) return;
+    const a = el.selectionStart ?? 0;
+    const b = el.selectionEnd ?? 0;
+    if (b - a > 1) return void (wide.current = true);
+    wide.current = false;
+    const p = slotAt(a);
+    if (p !== posRef.current || b - a !== 1 || SLOTS[p] !== a) setPos(p);
+  };
+  /** The field is left: a whole date is kept as the value; a half-typed or wrong one stays in sight, in red. */
+  const finish = () => {
+    const d = draftRef.current;
+    if (!d) return;
+    if (d.every((x) => x === null)) {
+      if (clearable) send('');
+      return setDraft(null);
+    }
+    const v = fromDigits(d, timeOf());
+    if (v && yearOk(v)) {
+      send(v);
+      setDraft(null);
+    }
   };
   const openPicker = () => {
     const start = current ?? new Date();
@@ -237,30 +307,30 @@ export function DateTimeField({
 
   const [hh, mm] = (current ? `${pad(current.getHours())}:${pad(current.getMinutes())}` : defaultTime).split(':');
   // the time is typed freely and applied when the field is left (or Enter)
-  const [draft, setDraft] = useState<{ h: string; m: string } | null>(null);
+  const [timeDraft, setTimeDraft] = useState<{ h: string; m: string } | null>(null);
   const applyTime = (h: string | number, m: string | number) => {
-    setText(null);
+    setDraft(null);
     const base = current ?? new Date(shown.getFullYear(), shown.getMonth(), 1);
     const hours = Math.min(23, Math.max(0, Number(h) || 0));
     const minutes = Math.min(59, Math.max(0, Number(m) || 0));
     onChange(toLocalInput(new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes)));
   };
   const commitTime = () => {
-    if (!draft) return;
-    applyTime(draft.h, draft.m);
-    setDraft(null);
+    if (!timeDraft) return;
+    applyTime(timeDraft.h, timeDraft.m);
+    setTimeDraft(null);
   };
   const timeInput = (part: 'h' | 'm') => ({
     type: 'text',
     inputMode: 'numeric' as const,
     maxLength: 2,
-    value: draft ? draft[part] : part === 'h' ? hh : mm,
+    value: timeDraft ? timeDraft[part] : part === 'h' ? hh : mm,
     onFocus: (e: FocusEvent<HTMLInputElement>) => e.target.select(),
-    onChange: (e: ChangeEvent<HTMLInputElement>) => setDraft({ h: draft?.h ?? hh, m: draft?.m ?? mm, [part]: e.target.value.replace(/\D/g, '') }),
+    onChange: (e: ChangeEvent<HTMLInputElement>) => setTimeDraft({ h: timeDraft?.h ?? hh, m: timeDraft?.m ?? mm, [part]: e.target.value.replace(/\D/g, '') }),
     onBlur: commitTime,
     onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => e.key === 'Enter' && commitTime(),
   });
-  const pickDay = (d: Date) => (setText(null), input.current?.blur(), onChange(toLocalInput(new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(hh), Number(mm)))));
+  const pickDay = (d: Date) => (setDraft(null), input.current?.blur(), onChange(toLocalInput(new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(hh), Number(mm)))));
   // days -> (title) months of a year -> (title) years; picking a year or a month goes back down
   const [view, setView] = useState<'days' | 'months' | 'years'>('days');
   // the time columns sit beside the calendar, or under it when the window is narrow
@@ -280,7 +350,7 @@ export function DateTimeField({
     <div className="dtf" ref={ref}>
       <div
         ref={box}
-        className={`dtf-box ${open ? 'dtf-open' : ''} ${invalid ? 'dtf-invalid' : ''} ${current && clearable ? 'dtf-has-clear' : ''}`}
+        className={`dtf-box ${open ? 'dtf-open' : ''} ${invalid ? 'dtf-invalid' : ''} ${(current || (draft && !blank)) && clearable ? 'dtf-has-clear' : ''}`}
         // a click on the frame around the text goes to the text
         onMouseDown={(e) => e.target === e.currentTarget && (e.preventDefault(), input.current?.focus())}
       >
@@ -297,27 +367,45 @@ export function DateTimeField({
         </button>
         <input
           ref={input}
-          className="dtf-input"
+          className={`dtf-input ${blank ? 'dtf-input-blank' : ''}`}
           type="text"
           inputMode="numeric"
           autoComplete="off"
           spellCheck={false}
           value={shownText}
-          // the shape to type in once it is focused, its role ("from", "to") before
-          placeholder={focused ? pattern : placeholder}
+          placeholder={placeholder}
           title={current ? dateTime(current.getTime()) : pattern}
           aria-label={ariaLabel ? `${ariaLabel} (${pattern})` : pattern}
           aria-invalid={invalid || undefined}
-          onBeforeInput={typeInside}
-          onChange={(e) => type(e.target.value)}
-          onFocus={() => setFocused(true)}
+          // the input's own editing is stopped in "beforeinput"; what slips through is put back by the controlled value
+          onChange={() => {}}
+          onSelect={onSelect}
+          onPointerDown={() => (pressing.current = true)}
+          onPointerUp={() => {
+            pressing.current = false;
+            // a drag selects more than a digit: left as it is; a click picks the digit it landed on
+            onSelect();
+            // not past the first digit not typed yet: a blank field starts at its first digit
+            const missing = (draftRef.current ?? (current ? [] : BLANK)).indexOf(null);
+            if (!wide.current && missing >= 0 && posRef.current > missing) setPos(missing);
+            const el = input.current;
+            if (el && !wide.current) el.setSelectionRange(SLOTS[posRef.current], SLOTS[posRef.current] + 1);
+          }}
+          onFocus={() => {
+            setFocused(true);
+            wide.current = false;
+          }}
           // a mouse click opens the calendar too; on a touch screen it is the keyboard's turn
           onClick={() => !open && !matchMedia('(pointer: coarse)').matches && openPicker()}
           onBlur={() => (setFocused(false), finish())}
           onKeyDown={(e) => {
-            if (e.key === 'Backspace' || e.key === 'Delete') eraseOverSeparator(e);
-            else if (e.key === 'Enter') {
-              // keeps what was typed (or puts the value back) instead of sending a form
+            const nav: Record<string, number> = { ArrowLeft: posRef.current - 1, ArrowRight: posRef.current + 1, Home: 0, End: 11 };
+            if (e.key in nav && !e.shiftKey) {
+              e.preventDefault();
+              wide.current = false;
+              setPos(nav[e.key]);
+            } else if (e.key === 'Enter') {
+              // keeps what was typed instead of sending a form
               e.preventDefault();
               finish();
               close();
@@ -331,8 +419,8 @@ export function DateTimeField({
           }}
         />
       </div>
-      {current && clearable && (
-        <button type="button" className="icon-btn dtf-clear" onClick={() => (setText(null), onChange(''))} aria-label={t('filter.clear')} title={t('filter.clear')}>
+      {(current || (draft && !blank)) && clearable && (
+        <button type="button" className="icon-btn dtf-clear" onClick={() => (setDraft(null), send(''))} aria-label={t('filter.clear')} title={t('filter.clear')}>
           <Icon name="close" size={14} />
         </button>
       )}
@@ -450,8 +538,8 @@ export function DateTimeField({
               <div className="dtf-side">
                 <span className="dtf-side-label">{t('time.hoursShort')}</span>
                 <span className="dtf-side-label">{t('time.minutesShort')}</span>
-                <TimeColumn count={24} value={Number(draft?.h ?? hh)} onPick={(h) => (setDraft(null), applyTime(h, draft?.m ?? mm))} label={t('time.hours')} />
-                <TimeColumn count={60} value={Number(draft?.m ?? mm)} onPick={(m) => (setDraft(null), applyTime(draft?.h ?? hh, m))} label={t('time.minutes')} />
+                <TimeColumn count={24} value={Number(timeDraft?.h ?? hh)} onPick={(h) => (setTimeDraft(null), applyTime(h, timeDraft?.m ?? mm))} label={t('time.hours')} />
+                <TimeColumn count={60} value={Number(timeDraft?.m ?? mm)} onPick={(m) => (setTimeDraft(null), applyTime(timeDraft?.h ?? hh, m))} label={t('time.minutes')} />
               </div>
             </div>
             <div className="dtf-foot">

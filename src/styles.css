@@ -4070,6 +4070,16 @@ button.cal-yearbar {
   font-variant-numeric: tabular-nums;
 }
 
+.dtf input.dtf-input.dtf-input-blank {
+  color: var(--muted);
+}
+
+/* the digit that the next one typed replaces */
+.dtf input.dtf-input::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
 .dtf input.dtf-input::placeholder {
   color: var(--muted);
   opacity: 1;
