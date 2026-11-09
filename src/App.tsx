@@ -1,13 +1,11 @@
 import { memo, useEffect, useLayoutEffect, useMemo } from 'react';
 import { Footer, Sidebar, SyncBanner, Toasts, TopBar } from './components/Layout';
-import { LinkMenu, TabProvider } from './components/Tabs';
+import { LinkMenu, TabProvider, useTabNav } from './components/Tabs';
 import { TemplateFormHost, TxFormHost } from './components/TxForm';
 import { AccountDetail, AccountsPage } from './pages/AccountsPage';
-import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AssetDetail, AssetsPage } from './pages/AssetsPage';
 import { CategoriesPage, CategoryDetail } from './pages/CategoriesPage';
 import { ContactDetail, ContactsPage } from './pages/ContactsPage';
-import { DashboardPage } from './pages/DashboardPage';
 import { DebtDetail, DebtsPage } from './pages/DebtsPage';
 import { AuthScreen, ConnectScreen, ErrorScreen, LoadingScreen, SetupScreen, UnlockScreen } from './pages/GateScreens';
 import { ServiceDetail, ServicesPage } from './pages/ServicesPage';
@@ -16,7 +14,9 @@ import { TemplatesPage } from './pages/TemplatesPage';
 import { TransactionDetail } from './pages/TransactionDetail';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { useI18n } from './i18n';
-import { parseHash, type Route } from './router';
+import { getIndex } from './lib/stats';
+import { NotFound } from './pages/common';
+import { href, parseHash, type Route } from './router';
 import { useStore } from './store/store';
 import { setTabLimitNotice, tabHash, takePendingScroll, useTabs, type Tab } from './store/tabs';
 import { showToast } from './store/ui';
@@ -38,12 +38,22 @@ const DETAILS = {
   debts: DebtDetail,
 };
 
+/** The home page is the user's own contact, on its overview: the tab goes there in place of "home". */
+function Home() {
+  const data = useStore((s) => s.data);
+  const self = getIndex(data).self;
+  const nav = useTabNav();
+  useLayoutEffect(() => {
+    if (self) nav.navigate(href.detail('contacts', self.id), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [self?.id]);
+  return self ? null : <NotFound />;
+}
+
 function Page({ route }: { route: Route }) {
   switch (route.name) {
     case 'dashboard':
-      return <DashboardPage />;
-    case 'analytics':
-      return <AnalyticsPage tab={route.tab} />;
+      return <Home />;
     case 'transactions':
       return <TransactionsPage query={route.query} />;
     case 'transaction':

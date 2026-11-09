@@ -8,15 +8,17 @@ import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
 import { AccountsHistory } from '../components/BalanceHistory';
 import { AccountsGraph } from '../components/AccountsGraph';
-import { Icon } from '../icons/ui';
+import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { deleteContact, saveContact } from '../lib/ops';
+import { contactAccountsInOrder, deleteContact, moveContactAccount, saveContact } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
 import { getIndex } from '../lib/stats';
 import type { Contact } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
-import { AccountEditor } from './AccountsPage';
+import { openTxForm } from '../store/ui';
+import { AccountCards, AccountEditor } from './AccountsPage';
+import { ContactStats } from './ContactStats';
 import { ContactDebts } from './ContactDebts';
 import { DebtEditor } from './DebtsPage';
 import { NotFound } from './common';
@@ -93,7 +95,8 @@ export function ContactsPage() {
   );
 }
 
-const PAGE_TABS = ['overview', 'accounts', 'debts', 'activity'] as const;
+const PAGE_TABS = ['overview', 'stats', 'analytics', 'accounts', 'debts', 'activity', 'detective'] as const;
+const TAB_ICON: Record<(typeof PAGE_TABS)[number], UiIconName> = { overview: 'info', accounts: 'wallet', debts: 'handshake', activity: 'swap', stats: 'chart', analytics: 'trend', detective: 'search' };
 type PageTab = (typeof PAGE_TABS)[number];
 
 export function ContactDetail({ id }: { id: string }) {
@@ -111,14 +114,10 @@ export function ContactDetail({ id }: { id: string }) {
   const s = ix.contact.get(id);
   const side = useMemo(() => new Set(s?.accounts.map((a) => a.id) ?? []), [s]);
   // the page's sections; the open tab is kept in the address (?tab=), so Back returns to it
-  const [pageTab, setPageTabState] = useState<PageTab>(() => {
-    const tab = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
-    return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
-  });
-  const setPageTab = (tab: PageTab) => {
-    setPageTabState(tab);
-    tabNav.navigate(href.detail('contacts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
-  };
+  // the open sub-tab is the one in this tab's address: a link to the page itself (e.g. "Home") goes back to the overview
+  const asked = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
+  const pageTab: PageTab = PAGE_TABS.includes(asked as PageTab) ? (asked as PageTab) : 'overview';
+  const setPageTab = (tab: PageTab) => tabNav.navigate(href.detail('contacts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
 
   if (!contact || !s) return <NotFound />;
   const accounts = [...s.accounts].sort(byName(locale));
@@ -132,12 +131,16 @@ export function ContactDetail({ id }: { id: string }) {
         icon={<Avatar image={contact.image} name={contact.name} size={38} />}
         actions={
           <>
+            <button type="button" className="btn btn-primary" onClick={() => openTxForm()}>
+              <Icon name="plus" size={18} />
+              {t('tx.add')}
+            </button>
             <button type="button" className="btn" onClick={() => setAddAccount(true)}>
               <Icon name="plus" size={18} />
               {t('accounts.add')}
             </button>
             <button type="button" className="btn" onClick={() => setAddDebt(true)}>
-              <Icon name="handshake" size={18} />
+              <Icon name="plus" size={18} />
               {t('debts.add')}
             </button>
             <button type="button" className="btn" onClick={() => setEdit(true)}>
@@ -155,8 +158,19 @@ export function ContactDetail({ id }: { id: string }) {
       />
       <nav className="page-tabs" role="tablist" aria-label={contact.name}>
         {PAGE_TABS.map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={pageTab === k} className={pageTab === k ? 'active' : ''} onClick={() => setPageTab(k)}>
-            {t(`contacts.page.${k}`)}
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={pageTab === k}
+            aria-label={t(`contacts.page.${k}`)}
+            title={t(`contacts.page.${k}`)}
+            // the detective keeps to the far right of the row
+            className={`${pageTab === k ? 'active' : ''} ${k === 'detective' ? 'page-tab-end' : ''}`}
+            onClick={() => setPageTab(k)}
+          >
+            <Icon name={TAB_ICON[k]} size={16} />
+            <span className="page-tab-label">{t(`contacts.page.${k}`)}</span>
             {k === 'accounts' && <span className="count">{num(accounts.length)}</span>}
             {k === 'debts' && <span className="count">{num(s.debts.length)}</span>}
           </button>
@@ -165,20 +179,55 @@ export function ContactDetail({ id }: { id: string }) {
 
       {pageTab === 'overview' && (
         <div className="acc-tab-panel">
-          {contact.description && <p className="muted pre detail-desc">{contact.description}</p>}
-
           <div className="stats-row">
-            <Stat label={t('nav.accounts')} icon="wallet">
-              {num(accounts.length)}
-            </Stat>
-            <Stat
-              label={t('stats.transactions')}
-              icon="swap"
-              hint={t('stats.inOutInternal', { in: num(s.flow.txIn), out: num(s.flow.txOut), internal: num(s.flow.txInternal) })}
-            >
-              {num(s.flow.tx)}
-            </Stat>
-            <Stat label={t('stats.balance')} icon="coins">
+            {/* the contact itself: its description, how many accounts and transactions (two cards' room) */}
+            <div className="stat stat-wide contact-sum">
+              <div className="stat-label contact-sum-title">
+                <Icon name="user" size={16} />
+                {t('contacts.about')}
+              </div>
+              {contact.description && (
+                <div className="contact-sum-desc">
+                  <span className="cell-label">{t('common.description')}</span>
+                  <p className="pre">{contact.description}</p>
+                </div>
+              )}
+              <div className="contact-sum-nums">
+                <div>
+                  <div className="stat-label">
+                    <Icon name="wallet" size={16} />
+                    {t('nav.accounts')}
+                  </div>
+                  <div className="stat-value">{num(accounts.length)}</div>
+                </div>
+                <div title={t('stats.inOutInternal', { in: num(s.flow.txIn), out: num(s.flow.txOut), internal: num(s.flow.txInternal) })}>
+                  <div className="stat-label">
+                    <Icon name="swap" size={16} />
+                    {t('stats.transactions')}
+                  </div>
+                  <div className="stat-value tx-split">
+                    {num(s.flow.tx)}
+                    <span className="muted">
+                      (<Icon name="arrowIn" size={13} className="flow-in" />
+                      {num(s.flow.txIn)}
+                      <Icon name="arrowOut" size={13} className="flow-out" />
+                      {num(s.flow.txOut)}
+                      <Icon name="refresh" size={13} className="flow-any" />
+                      {num(s.flow.txInternal)})
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div className="stat-label">
+                    <Icon name="calendar" size={16} />
+                    {t('contacts.addedAt')}
+                  </div>
+                  <div className="stat-value">{Number.isNaN(Date.parse(contact.createdAt)) ? '—' : i18n.date(contact.createdAt)}</div>
+                </div>
+              </div>
+            </div>
+            {/* the main figure of the page */}
+            <Stat label={t('stats.balance')} icon="coins" accent>
               <AssetAmounts map={s.balances} assets={data.assets} />
             </Stat>
             <Stat label={t('stats.balanceWithDebts')} icon="handshake">
@@ -186,10 +235,10 @@ export function ContactDetail({ id }: { id: string }) {
             </Stat>
           </div>
           <div className="stats-row">
-            <Stat label={t('stats.received')} icon="arrowIn" hint={t('stats.receivedHint')}>
+            <Stat label={t('stats.received')} icon="arrowIn" iconClass="flow-in" hint={t('stats.receivedHint')}>
               <AssetAmounts map={s.flow.in} assets={data.assets} />
             </Stat>
-            <Stat label={t('stats.sent')} icon="arrowOut" hint={t('stats.sentHint')}>
+            <Stat label={t('stats.sent')} icon="arrowOut" iconClass="flow-out" hint={t('stats.sentHint')}>
               <AssetAmounts map={s.flow.out} assets={data.assets} />
             </Stat>
             <Stat label={t('stats.internal')} icon="swap">
@@ -207,12 +256,30 @@ export function ContactDetail({ id }: { id: string }) {
           {accounts.length === 0 ? (
             <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
           ) : (
-            <>
-              {/* the accounts' balances over time, with the accounts right under it */}
-              <AccountsHistory accounts={accounts} stateKey={`contact.${id}`} />
-              {/* who they had transactions with */}
-              <AccountsGraph accounts={accounts} stateKey={`contact.${id}`} />
-            </>
+            // its accounts as cards, in its own order (dragged here, apart from the accounts list)
+            <AccountCards accounts={contactAccountsInOrder(contact, data.accounts)} onMove={(a, over) => mutate((d) => moveContactAccount(d, id, a, over))} />
+          )}
+        </section>
+      )}
+
+      {/* the analytics: the accounts' balances over time, with the accounts right under it */}
+      {pageTab === 'analytics' && (
+        <section className="acc-tab-panel">
+          {accounts.length === 0 ? (
+            <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
+          ) : (
+            <AccountsHistory accounts={accounts} stateKey={`contact.${id}`} />
+          )}
+        </section>
+      )}
+
+      {/* the detective: who its accounts had transactions with, as a graph */}
+      {pageTab === 'detective' && (
+        <section className="acc-tab-panel">
+          {accounts.length === 0 ? (
+            <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
+          ) : (
+            <AccountsGraph accounts={accounts} stateKey={`contact.${id}`} />
           )}
         </section>
       )}
@@ -220,6 +287,12 @@ export function ContactDetail({ id }: { id: string }) {
       {pageTab === 'debts' && (
         <div className="acc-tab-panel">
           <ContactDebts contact={contact} />
+        </div>
+      )}
+
+      {pageTab === 'stats' && (
+        <div className="acc-tab-panel">
+          <ContactStats contact={contact} />
         </div>
       )}
 

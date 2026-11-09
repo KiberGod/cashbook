@@ -20,7 +20,7 @@ import { TxBrowser } from '../components/TxBrowser';
 import { DateTimeField } from '../components/DateTimeField';
 import { ChartCard, extendedSeries, useChartColors } from '../components/charts';
 import { BreakdownDonut, type BreakdownSlice } from '../components/BreakdownDonut';
-import { FORMS, LIMITS, type Account, type FormId, type Transaction } from '../lib/types';
+import { FORMS, LIMITS, type Account, type Asset, type FormId, type Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
@@ -221,6 +221,37 @@ function AccountCard({ a, q, sortable, onEdit, onAdjust, onDelete }: { a: Accoun
   );
 }
 
+/**
+ * Account cards in a grid that can be reordered by dragging (`onMove` says how the order is kept:
+ * a contact's page keeps its own), with each card's menu: edit, balance adjustment, delete.
+ */
+export function AccountCards({ accounts, onMove }: { accounts: Account[]; onMove: (id: string, overId: string) => void }) {
+  const [edit, setEdit] = useState<Account | null>(null);
+  const [adjust, setAdjust] = useState<Account | null>(null);
+  const [del, setDel] = useState<Account | null>(null);
+  const sensors = useDragSensors();
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    swallowNextClick();
+    if (over && active.id !== over.id) onMove(String(active.id), String(over.id));
+  };
+  return (
+    <>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={accounts.map((a) => a.id)} strategy={rectSortingStrategy}>
+          <div className="acc-grid">
+            {accounts.map((a) => (
+              <AccountCard key={a.id} a={a} q="" sortable onEdit={() => setEdit(a)} onAdjust={() => setAdjust(a)} onDelete={() => setDel(a)} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+      {edit && <AccountEditor account={edit} onClose={() => setEdit(null)} />}
+      {adjust && <BalanceAdjustment account={adjust} onClose={() => setAdjust(null)} />}
+      {del && <DeleteAccount account={del} onClose={() => setDel(null)} />}
+    </>
+  );
+}
+
 /** The same card on the account's own page: nothing to open, so not a link. */
 function AccountCardStatic({ a }: { a: Account }) {
   const data = useStore((s) => s.data);
@@ -233,43 +264,8 @@ function AccountCardStatic({ a }: { a: Account }) {
   );
 }
 
-export function AccountRow({ a, q = '', onEdit, onDelete }: { a: Account; q?: string; onEdit?: () => void; onDelete?: () => void }) {
-  const { t } = useI18n();
-  const data = useStore((s) => s.data);
-  const ix = getIndex(data);
-  const contact = a.contactId ? ix.contacts.get(a.contactId) : undefined;
-  const service = a.serviceId ? ix.services.get(a.serviceId) : undefined;
-  const s = ix.account.get(a.id)!;
-  return (
-    <a className={`row ${contact?.isSelf ? 'row-own' : ''}`} href={href.detail('accounts', a.id)}>
-      {service ? <Avatar image={service.image} name={service.name} /> : <Avatar name={a.name} />}
-      <div className="row-main">
-        <div className="row-title">
-          <Highlight text={a.name} query={q} />
-          <FormBadge form={a.form} />
-        </div>
-        <div className="row-meta">
-          {contact && <ContactChip contact={contact} href={href.detail('contacts', contact.id)} inLink />}
-          {service && <span className="muted">{service.name}</span>}
-        </div>
-      </div>
-      <div className="row-side">
-        <AssetAmounts map={s.balances} assets={data.assets} keepZero />
-      </div>
-      {(onEdit || onDelete) && (
-        <CardMenu
-          actions={[
-            { label: t('tx.add'), icon: 'plus', onSelect: () => openTxForm({ prefill: { fromId: a.id } }) },
-            ...(onEdit ? [{ label: t('common.edit'), icon: 'edit' as const, onSelect: onEdit }] : []),
-            ...(onDelete ? [{ label: t('common.delete'), icon: 'trash' as const, danger: true, onSelect: onDelete }] : []),
-          ]}
-        />
-      )}
-    </a>
-  );
-}
-
 const PAGE_TABS = ['overview', 'stats', 'activity'] as const;
+const TAB_ICON: Record<(typeof PAGE_TABS)[number], UiIconName> = { overview: 'info', stats: 'chart', activity: 'swap' };
 type PageTab = (typeof PAGE_TABS)[number];
 
 export function AccountDetail({ id }: { id: string }) {
@@ -285,14 +281,10 @@ export function AccountDetail({ id }: { id: string }) {
   const [del, setDel] = useState(false);
   // the page's sections: what the account is / its numbers / its transactions. Opening an account
   // starts on the overview; the open tab is kept in the address (?tab=), so Back returns to it
-  const [pageTab, setPageTabState] = useState<PageTab>(() => {
-    const tab = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
-    return PAGE_TABS.includes(tab as PageTab) ? (tab as PageTab) : 'overview';
-  });
-  const setPageTab = (tab: PageTab) => {
-    setPageTabState(tab);
-    tabNav.navigate(href.detail('accounts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
-  };
+  // the open sub-tab is the one in this tab's address: a link to the page itself (e.g. "Home") goes back to the overview
+  const asked = new URLSearchParams(myTab.hash.split('?')[1] ?? '').get('tab');
+  const pageTab: PageTab = PAGE_TABS.includes(asked as PageTab) ? (asked as PageTab) : 'overview';
+  const setPageTab = (tab: PageTab) => tabNav.navigate(href.detail('accounts', id) + (tab === 'overview' ? '' : `?tab=${tab}`), { replace: true });
   const side = useMemo(() => new Set([id]), [id]);
   const s = ix.account.get(id);
   // the statistics tab's period (both ends included to the minute); remembered per account
@@ -307,6 +299,17 @@ export function AccountDetail({ id }: { id: string }) {
     });
   }, [s, statsRange, ix]);
   const flow = useMemo(() => accountFlowOf(id, periodTxs), [id, periodTxs]);
+  // the rings' scope: this account alone
+  const scope = useMemo<FlowScope>(
+    () => ({
+      side: new Set([id]),
+      inner: new Set([id]),
+      allTxs: s?.txs ?? [],
+      assets: (account?.assetIds ?? []).map((x) => ix.assets.get(x)).filter((x) => !!x),
+      stateKey: `account.${id}`,
+    }),
+    [id, s, account, ix],
+  );
 
 
   if (!account || !s) return <NotFound />;
@@ -347,7 +350,8 @@ export function AccountDetail({ id }: { id: string }) {
       <nav className="page-tabs" role="tablist" aria-label={account.name}>
         {PAGE_TABS.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={pageTab === k} className={pageTab === k ? 'active' : ''} onClick={() => setPageTab(k)}>
-            {t(`accounts.page.${k}`)}
+            <Icon name={TAB_ICON[k]} size={16} />
+            <span className="page-tab-label">{t(`accounts.page.${k}`)}</span>
           </button>
         ))}
       </nav>
@@ -472,9 +476,9 @@ export function AccountDetail({ id }: { id: string }) {
               </div>
             </div>
           </section>
-          <FlowBreakdown account={account} dim="contacts" txs={periodTxs} range={statsRange} />
-          <FlowBreakdown account={account} dim="accounts" txs={periodTxs} range={statsRange} />
-          <FlowBreakdown account={account} dim="categories" txs={periodTxs} range={statsRange} />
+          <FlowBreakdown scope={scope} dim="contacts" txs={periodTxs} range={statsRange} />
+          <FlowBreakdown scope={scope} dim="accounts" txs={periodTxs} range={statsRange} />
+          <FlowBreakdown scope={scope} dim="categories" txs={periodTxs} range={statsRange} />
         </>
       )}
       {pageTab === 'activity' && (
@@ -508,10 +512,10 @@ function EntityChip({ href: to, icon, name }: { href: string; icon: ReactNode; n
  * and an account holding several assets gets an asset choice per ring; one group keeps one
  * colour in both rings.
  */
-type StatsRange = { from: string; to: string };
+export type StatsRange = { from: string; to: string };
 
 /** The exact period the statistics count over ("1 окт. 2026 г., 00:00 – 31 окт. …", "с …", "по …", "За всё время"). */
-function PeriodBadge({ range }: { range: StatsRange }) {
+export function PeriodBadge({ range }: { range: StatsRange }) {
   const { t, dateTime } = useI18n();
   const text =
     range.from && range.to
@@ -529,25 +533,48 @@ function PeriodBadge({ range }: { range: StatsRange }) {
   );
 }
 
-function FlowBreakdown({ account, dim, txs, range }: { account: Account; dim: Dim; txs: Transaction[]; /** the period `txs` were taken from */ range: StatsRange }) {
+/** Whose money the rings show: one account, or some accounts of a contact. */
+export interface FlowScope {
+  /** the accounts the money is seen from */
+  side: Set<string>;
+  /** money moved between these is neither received nor sent (an account: itself; a contact: all its accounts) */
+  inner: Set<string>;
+  /** all of the scope's transactions: the colours are ranked on them, so filters don't repaint */
+  allTxs: Transaction[];
+  /** the assets to choose from */
+  assets: Asset[];
+  /** where the asset and measure choices are remembered */
+  stateKey: string;
+}
+
+/** A transaction's direction for a scope: received, sent, or neither (between its own accounts, or not its). */
+export function flowDir(scope: Pick<FlowScope, 'side' | 'inner'>, x: Transaction): 'in' | 'out' | null {
+  if (scope.side.has(x.toId) && !scope.inner.has(x.fromId)) return 'in';
+  if (scope.side.has(x.fromId) && !scope.inner.has(x.toId)) return 'out';
+  return null;
+}
+
+export function FlowBreakdown({ scope, dim, txs, range }: { scope: FlowScope; dim: Dim; txs: Transaction[]; /** the period `txs` were taken from */ range: StatsRange }) {
   const { t } = useI18n();
   const period = !!(range.from || range.to);
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
   const colors = useChartColors();
-  // colours are ranked on all the account's transactions, so a period change doesn't repaint them
-  const allTxs = ix.account.get(account.id)!.txs;
-  const assets = account.assetIds.map((x) => ix.assets.get(x)).filter((x) => !!x);
-  const key = `account.${account.id}.${dim}`;
-  const [inAsset, setInAsset] = useViewState(`${key}.inAsset`, account.assetIds[0]);
-  const [outAsset, setOutAsset] = useViewState(`${key}.outAsset`, account.assetIds[0]);
+  const { allTxs, assets, side } = scope;
+  const key = `${scope.stateKey}.${dim}`;
+  const first = assets[0]?.id ?? '';
+  const [inStored, setInAsset] = useViewState(`${key}.inAsset`, first);
+  const [outStored, setOutAsset] = useViewState(`${key}.outAsset`, first);
+  // a remembered asset that is no longer offered falls back to the first one
+  const inAsset = assets.some((a) => a.id === inStored) ? inStored : first;
+  const outAsset = assets.some((a) => a.id === outStored) ? outStored : first;
   const [inMeasure, setInMeasure] = useViewState<'sum' | 'count'>(`${key}.inMeasure`, 'sum');
   const [outMeasure, setOutMeasure] = useViewState<'sum' | 'count'>(`${key}.outMeasure`, 'sum');
 
-  // the group of a transaction, seen from this account's side
+  // the group of a transaction, seen from the scope's side
   const groupOf = (x: Transaction): string => {
     if (dim === 'categories') return x.categoryId || '__nocategory';
-    const otherId = x.toId === account.id ? x.fromId : x.toId;
+    const otherId = side.has(x.toId) ? x.fromId : x.toId;
     const other = otherId ? ix.accounts.get(otherId) : undefined;
     if (!other) return '__external';
     return dim === 'accounts' ? other.id : other.contactId || '__nocontact';
@@ -578,7 +605,7 @@ function FlowBreakdown({ account, dim, txs, range }: { account: Account; dim: Di
     const sums = new Map<string, { value: number; count: number }>();
     for (const x of txs) {
       if (x.assetId !== assetId) continue;
-      if (dir === 'in' ? x.toId !== account.id : x.fromId !== account.id) continue;
+      if (flowDir(scope, x) !== dir) continue;
       const k = groupOf(x);
       const sum = sums.get(k) ?? { value: 0, count: 0 };
       sums.set(k, { value: sum.value + x.amount, count: sum.count + 1 });
@@ -599,7 +626,7 @@ function FlowBreakdown({ account, dim, txs, range }: { account: Account; dim: Di
     // ties (as many transactions) go by amount, so the bigger sectors take the stronger colours
     return [...n].sort((a, b) => b[1].count - a[1].count || b[1].amount - a[1].amount || a[0].localeCompare(b[0])).map(([k]) => k);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTxs, account.id, ix, dim]);
+  }, [allTxs, side, ix, dim]);
   const series = extendedSeries(colors);
   const colorOf = (k: string) => series[Math.max(0, rank.indexOf(k)) % series.length];
 
@@ -620,7 +647,7 @@ function FlowBreakdown({ account, dim, txs, range }: { account: Account; dim: Di
       {text}
     </span>
   );
-  // a row of its own under the title (what it groups by; the asset when the account holds several),
+  // a row of its own under the title (what it groups by; the asset when there are several),
   // so the rings of neighbouring cards line up
   const toolbar = (asset: string, setAsset: (v: string) => void) => (
     <div className="chart-toolbar">

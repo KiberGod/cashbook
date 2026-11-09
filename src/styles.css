@@ -317,10 +317,6 @@ mark.hl {
   flex-shrink: 0;
 }
 
-.add-tx {
-  margin-top: 4px;
-}
-
 .side-nav {
   display: flex;
   flex-direction: column;
@@ -391,18 +387,6 @@ mark.hl {
   border-bottom: 1px solid var(--border);
 }
 
-.topbar-actions {
-  margin-left: auto;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.topbar-actions > .btn {
-  flex-shrink: 0;
-}
-
 .sheet-status {
   display: flex;
   align-items: center;
@@ -438,6 +422,8 @@ mark.hl {
 
 .sheet-status .sync {
   width: 20px;
+  /* the sync state at the pill's very end, however short the name */
+  margin-left: auto;
 }
 
 .sheet-status-name {
@@ -801,7 +787,6 @@ mark.hl {
 .field select,
 .field textarea,
 .select,
-.period-custom input,
 .range-input input {
   width: 100%;
   min-height: 42px;
@@ -1147,10 +1132,6 @@ select,
   gap: 6px;
 }
 
-.detail-desc {
-  margin: -6px 0 16px;
-}
-
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -1176,16 +1157,6 @@ select,
 
 .toolbar .field .field-label {
   font-size: 0.78rem;
-}
-
-.toolbar-tight {
-  margin-bottom: 0;
-}
-
-.filter-check {
-  align-self: center;
-  font-size: 0.9rem;
-  max-width: 340px;
 }
 
 .list-total {
@@ -1431,10 +1402,6 @@ select,
 
 .row.dim {
   opacity: 0.6;
-}
-
-.row-own {
-  border-left: 3px solid var(--accent);
 }
 
 .row-self {
@@ -1736,10 +1703,6 @@ select,
   align-items: start;
 }
 
-.detail-grid-2 {
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-}
-
 .panel-wide {
   grid-column: span 2;
 }
@@ -1870,22 +1833,6 @@ select,
 .table-compact th,
 .table-compact td {
   padding: 7px 10px;
-}
-
-.table tr.expandable {
-  cursor: pointer;
-}
-
-.table tr.expandable:hover td {
-  background: var(--surface-2);
-}
-
-.table .sub-row td:first-child {
-  padding-left: 34px;
-}
-
-.table .sub-row td {
-  background: color-mix(in srgb, var(--surface-2) 50%, transparent);
 }
 
 .cell-link {
@@ -2080,86 +2027,6 @@ select,
   height: 40px;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-.period-nav {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  height: 40px;
-}
-
-.period-nav .icon-btn {
-  width: 34px;
-  height: 34px;
-}
-
-.period-label {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0 6px;
-  white-space: nowrap;
-  text-transform: capitalize;
-}
-
-.period-custom {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.period-custom input {
-  min-height: 40px !important;
-  width: auto !important;
-}
-
-.analytics-controls {
-  margin-bottom: 12px;
-  align-items: stretch;
-}
-
-.analytics-controls .toolbar:first-child {
-  margin-bottom: 0;
-}
-
-.analytics-controls .filter-panel {
-  margin: 10px 0 0;
-}
-
-.subtabs {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  margin-bottom: 16px;
-  padding-bottom: 2px;
-  scrollbar-width: thin;
-}
-
-.subtabs a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: var(--muted);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.subtabs a:hover {
-  color: var(--text);
-  background: var(--surface-2);
-  text-decoration: none;
-}
-
-.subtabs a.active {
-  color: var(--accent);
-  background: var(--accent-soft);
 }
 
 /* ---------- pagination ---------- */
@@ -2604,13 +2471,6 @@ select,
 
 /* ---------- charts ---------- */
 
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
 .chart-card {
   align-items: stretch;
 }
@@ -2669,118 +2529,6 @@ select,
   height: 10px;
   border-radius: 3px;
   flex-shrink: 0;
-}
-
-.recharts-legend-item-text {
-  color: var(--text) !important;
-}
-
-.recharts-surface:focus,
-.recharts-wrapper *:focus {
-  outline: none;
-}
-
-.donut {
-  display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-}
-
-.donut-chart {
-  position: relative;
-}
-
-.donut-center {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-.donut-legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 0.88rem;
-  min-width: 0;
-}
-
-.donut-legend li {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.donut-legend-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.donut-legend strong {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.bar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-}
-
-.bar-list li > a,
-.bar-list li > div {
-  display: grid;
-  grid-template-columns: minmax(90px, 30%) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 5px 4px;
-  border-radius: 8px;
-  color: var(--text);
-}
-
-.bar-list li > a:hover {
-  background: var(--surface-2);
-  text-decoration: none;
-}
-
-.bar-list-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bar-list-track {
-  height: 10px;
-  border-radius: 4px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-.bar-list-fill {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-}
-
-.bar-list-value {
-  font-size: 0.86rem;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
 }
 
 /* ---------- banners, toast ---------- */
@@ -3376,10 +3124,7 @@ select,
     padding: 14px 16px 28px;
   }
 
-  .chart-grid,
-  .detail-grid-2 {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  
 }
 
 @media (max-width: 340px) {
@@ -3492,15 +3237,9 @@ select,
     white-space: normal;
   }
 
-  .donut {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  
 
-  .donut-chart {
-    max-width: 240px;
-    width: 100%;
-    margin: 0 auto;
-  }
+  
 
   .cal-months {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4174,7 +3913,6 @@ select,
   margin-bottom: 12px;
 }
 
-
 @media (max-width: 480px) {
   .range-input-dates {
     flex-wrap: wrap;
@@ -4571,9 +4309,9 @@ button.cal-yearbar {
   background: var(--accent);
 }
 
-/* a tab's count (a contact's accounts, debts) */
+/* a tab's count (a contact's accounts, debts): spaced by the tab's own gap */
 .page-tabs .count {
-  margin-left: 6px;
+  margin-left: 0;
 }
 
 /* four tabs with counts fit a phone's width */
@@ -4592,7 +4330,7 @@ button.cal-yearbar {
   }
 
   .page-tabs .count {
-    margin-left: 4px;
+    margin-left: 0;
   }
 }
 
@@ -4838,7 +4576,7 @@ button.cal-yearbar {
   font-size: 0.86rem;
 }
 
-.tx-split > .muted svg:nth-of-type(2) {
+.tx-split > .muted svg:nth-of-type(n + 2) {
   margin-left: 4px;
 }
 
@@ -5584,7 +5322,6 @@ a.txd-account:hover {
   border: 1px solid var(--border);
 }
 
-
 .bh-plot {
   position: relative;
   width: 100%;
@@ -6076,7 +5813,7 @@ a.txd-account:hover {
 
 .ag-box {
   position: relative;
-  height: 520px;
+  height: 600px;
   overflow: hidden;
   border-radius: 10px;
   background:
@@ -6094,7 +5831,7 @@ a.txd-account:hover {
 
 @media (max-width: 720px) {
   .ag-box {
-    height: 420px;
+    height: 480px;
   }
 }
 
@@ -6556,7 +6293,8 @@ a.txd-account:hover {
   align-self: center;
   width: 30px;
   height: 30px;
-  margin-top: 6px;
+  /* its centre on one line with the tabs' close crosses */
+  margin-top: 11px;
 }
 
 /* the miniature of a tab's page */
@@ -6625,4 +6363,282 @@ a.txd-account:hover {
    itself keeps below the strip */
 body:has(.topbar) .modal-backdrop {
   padding-top: calc(48px + 16px + env(safe-area-inset-top));
+}
+
+/* a clicked account's transactions: a panel on the graph's right (a sheet below on narrow boxes) */
+.ag-panel {
+  position: absolute;
+  z-index: 4;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: 340px;
+  max-width: calc(100% - 16px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  cursor: auto;
+  overflow: hidden;
+  animation: ag-panel-in 0.16s ease-out;
+}
+
+@keyframes ag-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+.ag-panel-head {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+
+.ag-panel-head .badge {
+  align-self: flex-start;
+}
+
+.ag-panel-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ag-panel-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 6px 8px;
+  touch-action: pan-y;
+}
+
+.ag-panel-empty {
+  padding: 8px 6px;
+  margin: 0;
+}
+
+.ag-tx {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.ag-tx:hover,
+.ag-tx:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.ag-tx > svg {
+  flex-shrink: 0;
+}
+
+.ag-tx-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ag-tx-who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.ag-tx .amount-chip {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.ag-panel-more {
+  width: 100%;
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  /* a sheet over the lower part: its head and list scroll together (the head alone would fill it) */
+  .ag-panel {
+    top: auto;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    height: 64%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    animation-name: ag-panel-up;
+  }
+
+  .ag-panel-list {
+    flex: none;
+    overflow: visible;
+  }
+
+  @keyframes ag-panel-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ag-panel {
+    animation: none;
+  }
+}
+
+/* a contact's own card on its overview: two cards' room, the description over the counts */
+.stat-wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 340px) {
+  .stat-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.contact-sum {
+  gap: 10px;
+}
+
+/* the card's title, like the other cards' labels */
+.contact-sum-title {
+  margin-bottom: 2px;
+}
+
+.contact-sum-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-sum-desc p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.contact-sum-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+}
+
+.contact-sum-nums > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* the second part of the split ("(↙ 2 ↗ 8 ⟳ 0)") at the stat's size, but lighter */
+.contact-sum .tx-split > .muted {
+  font-size: 0.86rem;
+}
+
+/* the main card among its neighbours (a contact's balance): the accent's frame, a soft glow of it */
+.stat-accent {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.stat-accent .stat-label {
+  color: var(--accent);
+}
+
+.stat-accent .stat-value {
+  font-size: 1.22rem;
+}
+
+/* a page's tabs carry their icons */
+.page-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* a phone: the shown tab with its name, the others by their icon (and count), so all of them fit */
+@media (max-width: 480px) {
+  .page-tabs:has(> :nth-child(4)) button:not(.active) .page-tab-label {
+    display: none;
+  }
+
+  .page-tabs:has(> :nth-child(4)) button {
+    gap: 4px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+}
+
+.page-tabs button > svg {
+  flex-shrink: 0;
+}
+
+/* a contact's statistics: the filters over the turnover and the rings */
+.cat-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 12px;
+}
+
+.cat-filters .field-label {
+  margin-left: 4px;
+}
+
+.cat-filters .range-input-dates {
+  flex: 0 1 380px;
+  min-width: 0;
+}
+
+/* a phone: the dates take a row of their own (their fields say "from" / "to") */
+@media (max-width: 720px) {
+  .cat-filters .field-label {
+    display: none;
+  }
+
+  .cat-filters .range-input-dates {
+    flex: 1 1 100%;
+  }
+}
+
+/* the links graph as a tab of its own: no extra gap on top */
+.acc-tab-panel > .ag {
+  margin-top: 0;
+}
+
+/* a tab set apart at the row's far right (a contact's detective) */
+.page-tabs button.page-tab-end {
+  margin-left: auto;
 }

@@ -101,7 +101,7 @@ export function presetData(lang: Lang): Data {
     });
   });
 
-  const self: Contact = { id: newId(), name: pick(SELF, lang), description: pick(SELF_DESC, lang), image: '', isSelf: true, ...stamps };
+  const self: Contact = { id: newId(), name: pick(SELF, lang), description: pick(SELF_DESC, lang), image: '', isSelf: true, accountOrder: [], ...stamps };
   const uah = assets[0];
   const account: Account = {
     id: newId(),

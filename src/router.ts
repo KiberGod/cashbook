@@ -2,8 +2,8 @@
 export type ListKind = 'assets' | 'services' | 'contacts' | 'accounts' | 'categories' | 'debts';
 
 export type Route =
+  /** the home page: the user's own contact (it opens that page) */
   | { name: 'dashboard' }
-  | { name: 'analytics'; tab: string }
   | { name: 'transactions'; query: URLSearchParams }
   | { name: 'transaction'; id: string }
   | { name: 'list'; kind: ListKind }
@@ -21,8 +21,6 @@ export function parseHash(hash: string): Route {
   const kind = parts[0] as ListKind;
   if (LIST_KINDS.includes(kind)) return parts[1] ? { name: 'detail', kind, id: parts[1], query: q } : { name: 'list', kind };
   switch (parts[0]) {
-    case 'analytics':
-      return { name: 'analytics', tab: q.get('tab') ?? '' };
     case 'transactions':
       return parts[1] ? { name: 'transaction', id: parts[1] } : { name: 'transactions', query: q };
     case 'templates':
@@ -43,7 +41,6 @@ const qs = (params: Record<string, string | undefined>) => {
 
 export const href = {
   dashboard: () => '#/',
-  analytics: (tab = '') => `#/analytics${qs({ tab })}`,
   /** filters: category, asset, debt, service, form */
   transactions: (filters: Record<string, string | undefined> = {}) => `#/transactions${qs(filters)}`,
   transaction: (id: string) => `#/transactions/${encodeURIComponent(id)}`,

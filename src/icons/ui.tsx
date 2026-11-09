@@ -111,6 +111,8 @@ const PATHS = {
     </>
   ),
   chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  // a line over time (analytics), next to the bars (statistics)
+  trend: <path d="M3 3v18h18M7 15l4-4 3 3 6-6" />,
   swap: <path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7" />,
   wallet: (
     <>

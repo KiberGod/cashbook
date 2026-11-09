@@ -48,6 +48,11 @@ export interface Contact extends Timestamps {
   image: string;
   /** the user's own contact - exactly one, cannot be deleted */
   isSelf: boolean;
+  /**
+   * its accounts in the order shown on its page (dragged there, apart from the accounts list's
+   * order); accounts not in it follow in the list's order, ids of others are ignored
+   */
+  accountOrder: string[];
 }
 
 /**

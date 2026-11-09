@@ -863,11 +863,27 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Stat({ label, children, hint, icon }: { label: string; children: ReactNode; hint?: ReactNode; icon?: UiIconName }) {
+export function Stat({
+  label,
+  children,
+  hint,
+  icon,
+  iconClass,
+  accent = false,
+}: {
+  label: string;
+  children: ReactNode;
+  hint?: ReactNode;
+  icon?: UiIconName;
+  /** the icon's colour, e.g. the green / red of incoming and outgoing */
+  iconClass?: string;
+  /** the main one among its neighbours (e.g. the balance) */
+  accent?: boolean;
+}) {
   return (
-    <div className="stat">
+    <div className={accent ? 'stat stat-accent' : 'stat'}>
       <div className="stat-label">
-        {icon && <Icon name={icon} size={16} />}
+        {icon && <Icon name={icon} size={16} className={iconClass} />}
         {label}
       </div>
       <div className="stat-value">{children}</div>

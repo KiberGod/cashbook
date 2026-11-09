@@ -30,12 +30,6 @@ export function toLocalInput(iso: string | Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** <input type="date"> value (local) for a date. */
-export function toDateInput(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
 /** Parses a typed amount: accepts "1 234,5" and "1234.5". Returns null when not a number. */
 export function parseAmount(s: string): number | null {
   const v = s.replace(/\s/g, '').replace(',', '.');

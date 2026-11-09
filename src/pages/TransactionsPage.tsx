@@ -37,8 +37,8 @@ export function TransactionsPage({ query }: { query: URLSearchParams }) {
   const qs = query.toString();
   // remembered per link: the plain list and every pre-filtered link (from an account, a debt...) keep their own filters
   const [stored, setFilter] = useViewState<TxFilter>(`transactions?${qs}`, () => fromQuery(query));
-  // filters remembered by an older version lack the newer fields (and may hold a period, now the date range's job)
-  const f = useMemo(() => ({ ...emptyFilter(), ...stored, period: emptyFilter().period }), [stored]);
+  // filters remembered by an older version lack the newer fields
+  const f = useMemo(() => ({ ...emptyFilter(), ...stored }), [stored]);
   const [moreFilters, setMoreFilters] = useViewState(`transactions?${qs}.filtersOpen`, () => activeFilters(fromQuery(query)) > 0);
   const set = <K extends keyof TxFilter>(k: K) => (v: TxFilter[K]) => setFilter((prev) => ({ ...emptyFilter(), ...prev, [k]: v }));
   const activeCount = activeFilters(f);

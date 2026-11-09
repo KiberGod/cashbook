@@ -255,11 +255,6 @@ export function navigate(to: string, opts: { replace?: boolean } = {}) {
   navigateTab(state.active, to, opts);
 }
 
-/** Back within the active tab, or to the fallback. */
-export function goBack(fallback: string) {
-  backTab(state.active, fallback);
-}
-
 // ---- the address bar and the browser's Back ----
 
 /**

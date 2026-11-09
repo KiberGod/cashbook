@@ -7,12 +7,12 @@ import {
 } from './types';
 
 /**
- * Spreadsheet layout (schema v6). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v7). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
  *   Services      id | name | description | image | forms | order | createdAt | updatedAt
- *   Contacts      id | name | description | image | isSelf | createdAt | updatedAt
+ *   Contacts      id | name | description | image | isSelf | accountOrder | createdAt | updatedAt
  *   Accounts      id | name | description | form | assetIds | initialBalances | adjustments | requisite | contactId | serviceId | order | createdAt | updatedAt
  *   Categories    id | name | description | image | parentId | order | createdAt | updatedAt
  *   Transactions  id | date | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | createdAt | updatedAt
@@ -24,7 +24,7 @@ import {
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
  * Balances and adjustments are JSON in plain cells too.
  */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 
@@ -78,6 +78,7 @@ export const COLUMNS: Record<EntityKind, Spec> = {
     ['description', 'text'],
     ['image', 'text'],
     ['isSelf', 'bool'],
+    ['accountOrder', 'list'],
     ...STAMPS,
   ],
   accounts: [

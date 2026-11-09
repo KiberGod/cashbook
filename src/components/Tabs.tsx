@@ -50,9 +50,8 @@ export function useTabNav() {
 
 // ---- what a tab is called ----
 
-const SECTION: Record<ListKind | 'dashboard' | 'analytics' | 'transactions' | 'templates' | 'settings', { icon: UiIconName; label: DictKey }> = {
+const SECTION: Record<ListKind | 'dashboard' | 'transactions' | 'templates' | 'settings', { icon: UiIconName; label: DictKey }> = {
   dashboard: { icon: 'dashboard', label: 'nav.dashboard' },
-  analytics: { icon: 'chart', label: 'nav.analytics' },
   contacts: { icon: 'users', label: 'nav.contacts' },
   accounts: { icon: 'wallet', label: 'nav.accounts' },
   transactions: { icon: 'swap', label: 'nav.transactions' },
@@ -62,6 +61,12 @@ const SECTION: Record<ListKind | 'dashboard' | 'analytics' | 'transactions' | 't
   services: { icon: 'bank', label: 'nav.servicesShort' },
   templates: { icon: 'template', label: 'nav.templates' },
   settings: { icon: 'settings', label: 'settings.title' },
+};
+
+/** the record pages' own tabs that name the browser-like tab too (their overview does not) */
+const SUB_TABS: Partial<Record<ListKind, string[]>> = {
+  contacts: ['stats', 'analytics', 'accounts', 'debts', 'activity', 'detective'],
+  accounts: ['stats', 'activity'],
 };
 
 /**
@@ -90,8 +95,11 @@ export function useTabTitle(hash: string): { title: string; icon: UiIconName; pi
                   ? ix.categories.get(r.id)?.name
                   : ix.debts.get(r.id)?.name;
       const contact = r.kind === 'contacts' ? ix.contacts.get(r.id) : undefined;
+      // a contact's or an account's own tab (statistics, transactions...) shows in the name
+      const sub = r.query.get('tab') ?? '';
+      const subLabel = (SUB_TABS[r.kind] ?? []).includes(sub) ? t(`${r.kind}.page.${sub}` as DictKey) : '';
       return {
-        title: name ?? t(s.label),
+        title: `${name ?? t(s.label)}${subLabel ? ` · ${subLabel}` : ''}`,
         icon: s.icon,
         picture: contact ? <Avatar image={contact.image} name={contact.name} size={18} /> : undefined,
       };

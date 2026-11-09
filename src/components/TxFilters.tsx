@@ -1,14 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { NONE, activeFilters, emptyFilter, type TxFilter } from '../lib/analytics';
+import { NONE, emptyFilter, type TxFilter } from '../lib/analytics';
 import { categoryTree, servicesInOrder } from '../lib/ops';
 import { sortAccountsForPicker, type Index } from '../lib/stats';
 import { FORMS } from '../lib/types';
 import { useStore } from '../store/store';
-import { AccountIcon, AssetIcon, Avatar, Field, MultiSelect, Picker, SearchField, useContactOptions, type Option } from './bits';
+import { AccountIcon, AssetIcon, Avatar, Field, MultiSelect, Picker, useContactOptions, type Option } from './bits';
 import { DateTimeField } from './DateTimeField';
-import { PeriodPicker } from './PeriodPicker';
 
 /** Option lists for the filter dropdowns, shared by the transactions page and analytics. */
 export function useFilterOptions(ix: Index) {
@@ -43,62 +42,6 @@ export function useFilterOptions(ix: Index) {
       debts: [...data.debts.map((d) => ({ value: d.id, label: d.name })), { value: NONE, label: t('tx.debtNone') }],
     };
   }, [ix, data, contacts, locale, t]);
-}
-
-export function TxFilters({ ix, value, onChange, showPeriod = true }: { ix: Index; value: TxFilter; onChange: (f: TxFilter) => void; showPeriod?: boolean }) {
-  const { t } = useI18n();
-  const o = useFilterOptions(ix);
-  const n = activeFilters(value);
-  const [more, setMore] = useState(n > 0);
-  const set = <K extends keyof TxFilter>(k: K) => (v: TxFilter[K]) => onChange({ ...value, [k]: v });
-
-  return (
-    <div className="filters">
-      <div className="toolbar">
-        <SearchField value={value.q} onChange={set('q')} placeholder={t('tx.search')} />
-        {showPeriod && <PeriodPicker value={value.period} onChange={set('period')} />}
-        <button type="button" className={`btn ${more ? 'btn-active' : ''}`} onClick={() => setMore(!more)} aria-expanded={more}>
-          <Icon name="filter" size={18} />
-          {t('filter.more')}
-          {n > 0 && <span className="badge badge-accent">{n}</span>}
-        </button>
-        {n > 0 && (
-          <button type="button" className="btn btn-ghost" onClick={() => onChange({ ...emptyFilter(), q: value.q, period: value.period })}>
-            {t('filter.reset')}
-          </button>
-        )}
-      </div>
-      {more && (
-        <div className="filter-panel">
-          <MultiSelect label={t('filter.fromContact')} options={o.contactsWithNone} value={value.fromContacts} onChange={set('fromContacts')} />
-          <MultiSelect label={t('filter.toContact')} options={o.contactsWithNone} value={value.toContacts} onChange={set('toContacts')} />
-          <MultiSelect label={t('filter.fromAccount')} options={o.accountsWithNone} value={value.fromAccounts} onChange={set('fromAccounts')} />
-          <MultiSelect label={t('filter.toAccount')} options={o.accountsWithNone} value={value.toAccounts} onChange={set('toAccounts')} />
-          <MultiSelect label={t('filter.form')} options={o.forms} value={value.forms} onChange={set('forms')} />
-          <MultiSelect label={t('filter.asset')} options={o.assets} value={value.assets} onChange={set('assets')} />
-          <MultiSelect label={t('filter.category')} options={o.categories} value={value.categories} onChange={set('categories')} />
-          <MultiSelect label={t('filter.service')} options={o.services} value={value.services} onChange={set('services')} />
-          <MultiSelect label={t('filter.debt')} options={o.debts} value={value.debts} onChange={set('debts')} />
-          <Field label={t('filter.direction')}>
-            <select className="select" value={value.direction} onChange={(e) => set('direction')(e.target.value as TxFilter['direction'])}>
-              <option value="all">{t('dir.all')}</option>
-              <option value="in">{t('dir.inMine')}</option>
-              <option value="out">{t('dir.outMine')}</option>
-              <option value="internal">{t('dir.internalMine')}</option>
-              <option value="foreign">{t('dir.foreign')}</option>
-            </select>
-          </Field>
-          <Field label={t('filter.amount')} group>
-            <span className="range-input">
-              <input type="text" inputMode="decimal" value={value.minAmount} onChange={(e) => set('minAmount')(e.target.value)} placeholder={t('filter.min')} />
-              <span>–</span>
-              <input type="text" inputMode="decimal" value={value.maxAmount} onChange={(e) => set('maxAmount')(e.target.value)} placeholder={t('filter.max')} />
-            </span>
-          </Field>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /**

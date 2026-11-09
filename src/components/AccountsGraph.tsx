@@ -5,7 +5,8 @@ import { getIndex } from '../lib/stats';
 import type { Account } from '../lib/types';
 import { href } from '../router';
 import { useStore } from '../store/store';
-import { AccountIcon, AssetAmounts, Avatar, ContactChip, MultiSelect, type Option } from './bits';
+import { openLink } from '../store/tabs';
+import { AccountIcon, AssetAmounts, AssetIcon, Avatar, ContactChip, Money, MultiSelect, type Option } from './bits';
 import { useViewState } from './viewState';
 
 /**
@@ -22,6 +23,8 @@ interface Link {
   /** transactions a -> b and b -> a */
   ab: number;
   ba: number;
+  /** the transactions themselves */
+  txs: Set<string>;
 }
 
 interface Body {
@@ -44,6 +47,12 @@ const REST_SPEED = 0.02;
 const OWN_PULL = 0.08;
 const RAY_PULL = 0.045;
 const PLACED_PULL = 0.25;
+/** the transactions panel: its width on the right, or (a narrow box) a sheet over the lower part */
+const PANEL_W = 340;
+const PANEL_BOTTOM_BELOW = 640;
+/** rows shown at first (and added by "show more") */
+const PANEL_PAGE = 60;
+
 /** transactions running along the links: world px per second, dots per second at the busiest direction */
 const DOT_SPEED = 110;
 const DOT_RATE_MIN = 0.2;
@@ -69,6 +78,154 @@ const placed = new Map<string, Map<string, { x: number; y: number }>>();
 /** where the user has moved accounts to, per graph: a shift of their place in the sun */
 const shifted = new Map<string, Map<string, { x: number; y: number }>>();
 
+/**
+ * What an account is (the hover card and the transactions panel's head): its name and form, whose
+ * it is, its balance, its transactions with the linked accounts on the graph (and, for the contact's
+ * own one, how many accounts it is linked to). `onClose` adds a close button.
+ */
+function AccountInfo({ id, own, links, onClose }: { id: string; own: Set<string>; links: Link[]; onClose?: () => void }) {
+  const { t, num } = useI18n();
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const a = ix.accounts.get(id);
+  if (!a) return null;
+  const as = ix.account.get(a.id);
+  const owner = a.contactId ? ix.contacts.get(a.contactId) : undefined;
+  const service = a.serviceId ? ix.services.get(a.serviceId) : undefined;
+  const mine = own.has(a.id);
+  const ls = links.filter((l) => l.a === a.id || l.b === a.id);
+  // from this account's side: what came in from / went out to the linked accounts
+  let inN = 0;
+  let outN = 0;
+  for (const l of ls) {
+    inN += l.a === a.id ? l.ba : l.ab;
+    outN += l.a === a.id ? l.ab : l.ba;
+  }
+  return (
+    <>
+      <div className="ag-card-head">
+        <AccountIcon account={a} service={service} size={30} />
+        <span className="ag-card-title">
+          <a href={href.detail('accounts', a.id)}>{a.name}</a>
+          <span className="muted small">
+            {t(`form.${a.form}`)}
+            {service ? ` · ${service.name}` : ''}
+          </span>
+        </span>
+        {onClose && (
+          <button type="button" className="icon-btn ag-card-close" onClick={onClose} aria-label={t('common.close')} title={t('common.close')}>
+            <Icon name="close" size={15} />
+          </button>
+        )}
+      </div>
+      {mine && <span className="badge badge-accent">{t('graph.ownAccount')}</span>}
+      <div className="ag-card-row">
+        <span className="muted">{t('graph.owner')}</span>
+        {owner ? <ContactChip contact={owner} href={href.detail('contacts', owner.id)} /> : <span className="muted">{t('graph.noContact')}</span>}
+      </div>
+      <div className="ag-card-row">
+        <span className="muted">{t('accounts.balance')}</span>
+        {as ? <AssetAmounts map={as.balances} assets={data.assets} column /> : <span className="muted">—</span>}
+      </div>
+      <div className="ag-card-row" title={mine ? t('graph.links') : t('graph.withContact')}>
+        <span className="muted">{t('stats.transactions')}</span>
+        <span className="tx-split">
+          {num(inN + outN)}
+          <span className="muted">
+            (<Icon name="arrowIn" size={13} className="flow-in" />
+            {num(inN)}
+            <Icon name="arrowOut" size={13} className="flow-out" />
+            {num(outN)})
+          </span>
+        </span>
+      </div>
+      {mine && (
+        <div className="ag-card-row">
+          <span className="muted">{t('graph.linkedAccounts')}</span>
+          <span>{num(ls.length)}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * A clicked account's transactions with the accounts it is linked to on the graph, newest first:
+ * which way the money went (seen from the account), with whom, when, and how much. A row opens the
+ * transaction.
+ */
+function TxPanel({ id, links, own, onClose }: { id: string; links: Link[]; own: Set<string>; onClose: () => void }) {
+  const i18n = useI18n();
+  const { t, num } = i18n;
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const [limit, setLimit] = useState(PANEL_PAGE);
+  const a = ix.accounts.get(id);
+  const txs = useMemo(() => {
+    const ids = new Set<string>();
+    for (const l of links) if (l.a === id || l.b === id) for (const x of l.txs) ids.add(x);
+    return [...ids]
+      .map((x) => ix.transactions.get(x))
+      .filter((x) => !!x)
+      .sort((p, q) => ix.time.get(q.id)! - ix.time.get(p.id)!);
+  }, [links, id, ix]);
+  if (!a) return null;
+  return (
+    <aside className="ag-panel" aria-label={`${a.name}: ${t('graph.txTitle')}`} onPointerDown={(e) => e.stopPropagation()}>
+      {/* what the hover card shows, as the head */}
+      <div className="ag-panel-head">
+        <AccountInfo id={id} own={own} links={links} onClose={onClose} />
+      </div>
+      <div className="ag-panel-sub">
+        {t('graph.txTitle')} <span className="count">{num(txs.length)}</span>
+      </div>
+      <div className="ag-panel-list">
+        {txs.length === 0 && <p className="muted ag-panel-empty">{t('graph.noTx')}</p>}
+        {txs.slice(0, limit).map((x) => {
+          const out = x.fromId === id;
+          const otherId = out ? x.toId : x.fromId;
+          const other = ix.accounts.get(otherId);
+          const asset = ix.assets.get(x.assetId);
+          const cat = x.categoryId ? ix.categories.get(x.categoryId) : undefined;
+          const to = href.transaction(x.id);
+          return (
+            <div
+              key={x.id}
+              className="ag-tx"
+              role="link"
+              tabIndex={0}
+              data-href={to}
+              onClick={() => openLink(to)}
+              onKeyDown={(e) => e.key === 'Enter' && openLink(to)}
+            >
+              <Icon name={out ? 'arrowOut' : 'arrowIn'} size={15} className={out ? 'flow-out' : 'flow-in'} />
+              <span className="ag-tx-main">
+                <span className="ag-tx-who">
+                  {other && <AccountIcon account={other} service={other.serviceId ? ix.services.get(other.serviceId) : undefined} size={18} />}
+                  <span className="ellipsis">{other?.name ?? t('tx.external')}</span>
+                </span>
+                <span className="muted small ellipsis">
+                  {i18n.dateTime(x.date)}
+                  {cat ? ` · ${cat.name}` : ''}
+                </span>
+              </span>
+              <span className="amount-chip">
+                <AssetIcon asset={asset} size={15} />
+                <Money value={out ? -x.amount : x.amount} asset={asset} sign colored />
+              </span>
+            </div>
+          );
+        })}
+        {txs.length > limit && (
+          <button type="button" className="btn btn-sm btn-ghost ag-panel-more" onClick={() => setLimit((n) => n + PANEL_PAGE)}>
+            {t('graph.more', { n: num(Math.min(PANEL_PAGE, txs.length - limit)) })}
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; stateKey: string }) {
   const i18n = useI18n();
   const { t, num, locale } = i18n;
@@ -79,7 +236,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
 
   // every link that touches an own account; each transaction counted once
   const model = useMemo(() => {
-    const links = new Map<string, Link & { txs: Set<string> }>();
+    const links = new Map<string, Link>();
     for (const a of own) {
       for (const x of ix.account.get(a)?.txs ?? []) {
         if (!x.fromId || !x.toId || x.fromId === x.toId) continue;
@@ -661,6 +818,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
       if (!g.moved) {
         window.clearTimeout(hoverTimer.current);
         setFocus((f) => (f && f.id === g.id && f.pinned ? null : { id: g.id!, pinned: true }));
+        revealBeside(g.id!);
       }
     } else {
       if (!g.moved) setFocus(null);
@@ -674,6 +832,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
     if (!el) return;
     let save = 0;
     const onWheel = (e: WheelEvent) => {
+      if ((e.target as Element | null)?.closest?.('.ag-panel')) return;
       e.preventDefault();
       zoomAtRef.current(local(e), view.current.k * Math.exp(-(e.deltaY || e.deltaX) * 0.0015));
       window.clearTimeout(save);
@@ -697,67 +856,33 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
     setFocus((f) => (f?.pinned ? f : null));
   };
 
-  // ---- the card ----
-  const card = (() => {
-    if (!focus) return null;
-    const a = ix.accounts.get(focus.id);
-    if (!a) return null;
-    const as = ix.account.get(a.id);
-    const owner = a.contactId ? ix.contacts.get(a.contactId) : undefined;
-    const service = a.serviceId ? ix.services.get(a.serviceId) : undefined;
-    const mine = own.has(a.id);
-    const ls = links.filter((l) => l.a === a.id || l.b === a.id);
-    // from this account's side: what came in from / went out to the linked accounts
-    let inN = 0;
-    let outN = 0;
-    for (const l of ls) {
-      inN += l.a === a.id ? l.ba : l.ab;
-      outN += l.a === a.id ? l.ab : l.ba;
+  // the side panel covers the right part (a phone: the lower part): the clicked account moves into
+  // the part left free
+  const revealBeside = (id: string) => {
+    const b = bodies.current.get(id);
+    if (!b) return;
+    const v = view.current;
+    const sx = size.w / 2 + v.x + b.x * v.k;
+    const sy = size.h / 2 + v.y + b.y * v.k;
+    if (size.w < PANEL_BOTTOM_BELOW) {
+      const free = size.h * 0.34;
+      if (sy > free - 30) view.current = { ...v, y: v.y + (free / 2 - sy) };
+    } else {
+      const free = size.w - PANEL_W - 16;
+      if (sx > free - 40) view.current = { ...v, x: v.x + (free / 2 - sx) };
     }
+    autoFit.current = false;
+    applyRef.current();
+    setStoredView(view.current);
+  };
+
+  // ---- the hover card ----
+  const card = (() => {
+    if (!focus || focus.pinned || !ix.accounts.has(focus.id)) return null;
+    const a = ix.accounts.get(focus.id)!;
     return (
-      <div ref={tip} className={`ag-card ${focus.pinned ? 'pinned' : ''}`} role="dialog" aria-label={a.name} onPointerDown={(e) => e.stopPropagation()}>
-        <div className="ag-card-head">
-          <AccountIcon account={a} service={service} size={30} />
-          <span className="ag-card-title">
-            <a href={href.detail('accounts', a.id)}>{a.name}</a>
-            <span className="muted small">
-              {t(`form.${a.form}`)}
-              {service ? ` · ${service.name}` : ''}
-            </span>
-          </span>
-          {focus.pinned && (
-            <button type="button" className="icon-btn ag-card-close" onClick={() => setFocus(null)} aria-label={t('common.close')}>
-              <Icon name="close" size={14} />
-            </button>
-          )}
-        </div>
-        {mine && <span className="badge badge-accent">{t('graph.ownAccount')}</span>}
-        <div className="ag-card-row">
-          <span className="muted">{t('graph.owner')}</span>
-          {owner ? <ContactChip contact={owner} href={href.detail('contacts', owner.id)} /> : <span className="muted">{t('graph.noContact')}</span>}
-        </div>
-        <div className="ag-card-row">
-          <span className="muted">{t('accounts.balance')}</span>
-          {as ? <AssetAmounts map={as.balances} assets={data.assets} column /> : <span className="muted">—</span>}
-        </div>
-        <div className="ag-card-row" title={mine ? t('graph.links') : t('graph.withContact')}>
-          <span className="muted">{t('stats.transactions')}</span>
-          <span className="tx-split">
-            {num(inN + outN)}
-            <span className="muted">
-              (<Icon name="arrowIn" size={13} className="flow-in" />
-              {num(inN)}
-              <Icon name="arrowOut" size={13} className="flow-out" />
-              {num(outN)})
-            </span>
-          </span>
-        </div>
-        {mine && (
-          <div className="ag-card-row">
-            <span className="muted">{t('graph.linkedAccounts')}</span>
-            <span>{num(ls.length)}</span>
-          </div>
-        )}
+      <div ref={tip} className="ag-card" role="dialog" aria-label={a.name} onPointerDown={(e) => e.stopPropagation()}>
+        <AccountInfo id={a.id} own={own} links={links} />
       </div>
     );
   })();
@@ -874,6 +999,7 @@ export function AccountsGraph({ accounts, stateKey }: { accounts: Account[]; sta
           )}
         </div>
         {card}
+        {focus?.pinned && <TxPanel key={focus.id} id={focus.id} links={links} own={own} onClose={() => setFocus(null)} />}
       </div>
     </section>
   );

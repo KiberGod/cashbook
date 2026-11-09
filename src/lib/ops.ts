@@ -86,11 +86,12 @@ export function deleteService(d: Data, id: string): Data {
 
 // ---- contacts ----
 
-export type ContactFields = Omit<Fields<Contact>, 'isSelf'>;
+/** what the editor sets; "it's you" and the accounts' order on its page are kept as they are */
+export type ContactFields = Omit<Fields<Contact>, 'isSelf' | 'accountOrder'>;
 
 export function saveContact(d: Data, f: ContactFields, id?: string) {
-  const isSelf = id ? (d.contacts.find((c) => c.id === id)?.isSelf ?? false) : false;
-  const { list, entity } = upsert(d.contacts, { ...f, isSelf }, id);
+  const old = id ? d.contacts.find((c) => c.id === id) : undefined;
+  const { list, entity } = upsert(d.contacts, { ...f, isSelf: old?.isSelf ?? false, accountOrder: old?.accountOrder ?? [] }, id);
   return { data: { ...d, contacts: list }, entity };
 }
 
@@ -151,6 +152,26 @@ export function adjustBalances(d: Data, id: string, deltas: Record<string, numbe
 
 export const accountsInOrder = (list: Account[]) => [...list].sort((a, b) => a.order - b.order);
 
+/** A contact's accounts in its own order: the ones it has placed first, the rest in the list's order. */
+export function contactAccountsInOrder(contact: Contact, accounts: Account[]): Account[] {
+  const mine = accountsInOrder(accounts.filter((a) => a.contactId === contact.id));
+  const at = new Map(contact.accountOrder.map((id, i) => [id, i]));
+  return mine.sort((a, b) => (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity));
+}
+
+/** Drag and drop on a contact's page: its accounts' own order changes, the accounts list's does not. */
+export function moveContactAccount(d: Data, contactId: string, id: string, overId: string): Data {
+  const contact = d.contacts.find((c) => c.id === contactId);
+  if (!contact) return d;
+  const ids = contactAccountsInOrder(contact, d.accounts).map((a) => a.id);
+  const from = ids.indexOf(id);
+  const to = ids.indexOf(overId);
+  if (from < 0 || to < 0 || from === to) return d;
+  ids.splice(to, 0, ...ids.splice(from, 1));
+  const t = now();
+  return { ...d, contacts: d.contacts.map((c) => (c.id === contactId ? { ...c, accountOrder: ids, updatedAt: t } : c)) };
+}
+
 /** Moves an account to where another one is and renumbers; only accounts whose place changed are rewritten. */
 export function moveAccount(d: Data, id: string, overId: string): Data {
   const list = accountsInOrder(d.accounts);
@@ -172,6 +193,8 @@ export function deleteAccount(d: Data, id: string): Data {
   return {
     ...d,
     accounts: d.accounts.filter((a) => a.id !== id),
+    // out of its contact's own order too
+    contacts: d.contacts.map((c) => (c.accountOrder.includes(id) ? { ...c, accountOrder: c.accountOrder.filter((x) => x !== id), updatedAt: t } : c)),
     transactions: d.transactions.filter((x) => x.fromId !== id && x.toId !== id),
     templates: d.templates.map((x) =>
       x.fromId === id

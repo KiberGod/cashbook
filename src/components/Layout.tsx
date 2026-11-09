@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import type { DictKey } from '../i18n/en';
 import { APP_VERSION } from '../lib/version';
 import { href, type Route } from '../router';
+import { getIndex } from '../lib/stats';
 import { discardAndReload, flush, reload, signIn, useStore } from '../store/store';
 import { openTxForm, useUi } from '../store/ui';
 import { TabStrip } from './Tabs';
@@ -46,16 +47,18 @@ interface NavItem {
   to: string;
   icon: UiIconName;
   label: DictKey;
-  active: (r: Route) => boolean;
+  /** `self`: the user's own contact, whose page is the home page */
+  active: (r: Route, self: string) => boolean;
 }
+
+const isSelf = (r: Route, self: string) => r.name === 'detail' && r.kind === 'contacts' && r.id === self;
 
 const NAV: NavItem[][] = [
   [
-    { to: href.dashboard(), icon: 'dashboard', label: 'nav.dashboard', active: (r) => r.name === 'dashboard' },
-    { to: href.analytics(), icon: 'chart', label: 'nav.analytics', active: (r) => r.name === 'analytics' },
+    { to: href.dashboard(), icon: 'dashboard', label: 'nav.dashboard', active: (r, self) => r.name === 'dashboard' || isSelf(r, self) },
   ],
   [
-    { to: href.list('contacts'), icon: 'users', label: 'nav.contacts', active: (r) => 'kind' in r && r.kind === 'contacts' },
+    { to: href.list('contacts'), icon: 'users', label: 'nav.contacts', active: (r, self) => 'kind' in r && r.kind === 'contacts' && !isSelf(r, self) },
     { to: href.list('accounts'), icon: 'wallet', label: 'nav.accounts', active: (r) => 'kind' in r && r.kind === 'accounts' },
     { to: href.transactions(), icon: 'swap', label: 'nav.transactions', active: (r) => r.name === 'transactions' || r.name === 'transaction' },
     { to: href.list('debts'), icon: 'handshake', label: 'nav.debts', active: (r) => 'kind' in r && r.kind === 'debts' },
@@ -71,12 +74,13 @@ const NAV: NavItem[][] = [
 
 function NavLinks({ route, onPick }: { route: Route; onPick?: () => void }) {
   const { t } = useI18n();
+  const self = useStore((s) => getIndex(s.data).self?.id ?? '');
   return (
     <>
       {NAV.map((group, i) => (
         <div className="nav-group" key={i}>
           {group.map((n) => (
-            <a key={n.to} href={n.to} className={n.active(route) ? 'active' : ''} onClick={onPick}>
+            <a key={n.to} href={n.to} className={n.active(route, self) ? 'active' : ''} onClick={onPick}>
               <Icon name={n.icon} size={19} />
               <span>{t(n.label)}</span>
             </a>
@@ -109,17 +113,12 @@ function SheetStatus() {
 }
 
 export function Sidebar({ route }: { route: Route }) {
-  const { t } = useI18n();
   return (
     <aside className="sidebar">
       <a className="brand" href={href.dashboard()}>
         <Logo />
         <span>Cashbook</span>
       </a>
-      <button type="button" className="btn btn-primary btn-block add-tx" onClick={() => openTxForm()}>
-        <Icon name="plus" size={18} />
-        {t('tx.add')}
-      </button>
       <nav className="side-nav">
         <NavLinks route={route} />
       </nav>
