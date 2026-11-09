@@ -128,6 +128,10 @@ export function DateTimeField({
     if (v && yearOk(v) && v !== value) onChange(v);
     setText(null);
   };
+  // a whole date (or date and time) is typed but it is not a real one, or out of the allowed years:
+  // shown in red, and put back to the value when the field is left
+  const typed = text !== null && fromText(text, timeOf(), true);
+  const invalid = text !== null && (text.length === 10 || text.length >= 16) && !(typed && yearOk(typed));
   // where the caret goes after a digit typed over another one (set once the new text is in)
   const caret = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -136,23 +140,62 @@ export function DateTimeField({
     caret.current = null;
   });
   /**
-   * A digit typed inside a whole-shaped text takes the place of the digit after the caret (the
-   * separators are stepped over) and the caret moves on to the next one, like on a paper form.
+   * Typing inside the text works part by part (day, month, year, hours, minutes):
+   * - a digit in a whole part takes the place of the digit after the caret, and the caret moves on
+   *   to the next digit (the separators are stepped over), like on a paper form;
+   * - a digit in a part that is short (one was rubbed out) is put in, to fill it up again;
+   * - a separator typed before one steps over it; other non-digits are not let in.
+   * At the end of the text, and over a selection, the input does it its own way.
    */
-  const overwrite = (e: FormEvent<HTMLInputElement>) => {
+  const typeInside = (e: FormEvent<HTMLInputElement>) => {
     const ch = (e.nativeEvent as InputEvent).data;
     const el = e.currentTarget;
-    const old = shownText;
-    const at = el.selectionStart ?? old.length;
-    if (!ch || !/^\d$/.test(ch) || at >= old.length || mask(old, sep) !== old) return;
-    let i = at;
-    while (i < old.length && !/\d/.test(old[i])) i++;
-    if (i >= old.length) return;
+    const old = el.value;
+    const at = el.selectionStart;
+    if (!ch || ch.length !== 1 || at === null || at !== el.selectionEnd || at >= old.length) return;
+    if (!/\d/.test(ch)) {
+      // the separators are already in place: one typed before a separator steps over it, anything else is dropped
+      e.preventDefault();
+      if (!/\d/.test(old[at])) el.setSelectionRange(at + 1, at + 1);
+      return;
+    }
+    const runs = [...old.matchAll(/\d+/g)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
+    if (runs.length > PARTS.length) return;
+    const full = (k: number) => runs[k].end - runs[k].start >= PARTS[k];
+    // the part the caret is in (or at the edge of), else the next one
+    let k = runs.findIndex((r) => at >= r.start && at <= r.end);
+    if (k < 0) k = runs.findIndex((r) => r.start >= at);
+    if (k < 0 || !full(k)) return;
+    let pos = at;
+    // at the end of a whole part: on into the next one
+    if (at === runs[k].end) {
+      k++;
+      if (!runs[k]) return;
+      pos = runs[k].start;
+      if (!full(k)) {
+        e.preventDefault();
+        caret.current = pos + 1;
+        type(old.slice(0, pos) + ch + old.slice(pos), true);
+        return;
+      }
+    }
     e.preventDefault();
-    let next = i + 1;
-    while (next < old.length && !/\d/.test(old[next])) next++;
-    caret.current = Math.min(next, old.length);
-    type(old.slice(0, i) + ch + old.slice(i + 1), true);
+    caret.current = pos + 1 === runs[k].end && runs[k + 1] ? runs[k + 1].start : pos + 1;
+    type(old.slice(0, pos) + ch + old.slice(pos + 1), true);
+  };
+  /** Backspace / Delete next to a separator rub out the digit beyond it instead of doing nothing. */
+  const eraseOverSeparator = (e: KeyboardEvent<HTMLInputElement>) => {
+    const el = e.currentTarget;
+    const old = el.value;
+    const at = el.selectionStart;
+    // at the end of the text Backspace rubs out separators as usual
+    if (at === null || at !== el.selectionEnd || (e.key === 'Backspace' && at >= old.length)) return;
+    const i = e.key === 'Backspace' ? at - 2 : at + 1;
+    const sepAt = e.key === 'Backspace' ? at - 1 : at;
+    if (i < 0 || i >= old.length || /\d/.test(old[sepAt] ?? '') || !/\d/.test(old[i])) return;
+    e.preventDefault();
+    caret.current = e.key === 'Backspace' ? i : at + 1;
+    type(old.slice(0, i) + old.slice(i + 1), true);
   };
   const type = (raw: string, shaped = false) => {
     const time = timeOf();
@@ -237,7 +280,7 @@ export function DateTimeField({
     <div className="dtf" ref={ref}>
       <div
         ref={box}
-        className={`dtf-box ${open ? 'dtf-open' : ''} ${current && clearable ? 'dtf-has-clear' : ''}`}
+        className={`dtf-box ${open ? 'dtf-open' : ''} ${invalid ? 'dtf-invalid' : ''} ${current && clearable ? 'dtf-has-clear' : ''}`}
         // a click on the frame around the text goes to the text
         onMouseDown={(e) => e.target === e.currentTarget && (e.preventDefault(), input.current?.focus())}
       >
@@ -264,14 +307,16 @@ export function DateTimeField({
           placeholder={focused ? pattern : placeholder}
           title={current ? dateTime(current.getTime()) : pattern}
           aria-label={ariaLabel ? `${ariaLabel} (${pattern})` : pattern}
-          onBeforeInput={overwrite}
+          aria-invalid={invalid || undefined}
+          onBeforeInput={typeInside}
           onChange={(e) => type(e.target.value)}
           onFocus={() => setFocused(true)}
           // a mouse click opens the calendar too; on a touch screen it is the keyboard's turn
           onClick={() => !open && !matchMedia('(pointer: coarse)').matches && openPicker()}
           onBlur={() => (setFocused(false), finish())}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Backspace' || e.key === 'Delete') eraseOverSeparator(e);
+            else if (e.key === 'Enter') {
               // keeps what was typed (or puts the value back) instead of sending a form
               e.preventDefault();
               finish();

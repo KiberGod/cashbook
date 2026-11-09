@@ -4027,6 +4027,11 @@ button.cal-yearbar {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+.dtf-box.dtf-invalid {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
 .dtf-cal-btn {
   display: grid;
   place-items: center;
