@@ -182,28 +182,13 @@ export function openTab(to: string, { background = false, explicit = false } = {
   newTab(to, { background });
 }
 
-/** A section's list and the record pages under it ("transactions" for the list and a transaction). */
-function sectionOf(hash: string): { section: string; record: boolean } | null {
-  const r = parseHash(hash);
-  if (r.name === 'list') return { section: r.kind, record: false };
-  if (r.name === 'detail') return { section: r.kind, record: true };
-  if (r.name === 'transactions') return { section: 'transactions', record: false };
-  if (r.name === 'transaction') return { section: 'transactions', record: true };
-  return null;
-}
-
 /**
- * Follows an in-app link. Within the active tab: when it only changes the current page's view (e.g.
- * its sub-tab), or goes from a section's list to one of its records (the accounts list to an
- * account). Anything else - a related record elsewhere - goes to the tab with that page or a new one.
+ * Follows an in-app link: in the active tab. Only a few links go to a tab of their own (the tab
+ * that already has the page, or a new one): those marked `data-open="tab"` (a contact chip, a
+ * transaction's category and debt chips), see `openTab`.
  */
 export function openLink(to: string) {
-  const here = tabHash(activeTab());
-  const from = sectionOf(here);
-  const dest = sectionOf(to);
-  const down = !!from && !!dest && !from.record && dest.record && from.section === dest.section;
-  if (down || tabKey(to) === tabKey(here)) navigateTab(state.active, to);
-  else openTab(to);
+  navigateTab(state.active, to);
 }
 
 /** Closes a tab; the last one closed leaves a fresh one, as in a browser. */
@@ -295,9 +280,8 @@ if (!window.__cashbookTabs) {
     openLink(to);
   });
 
-  // in-app links: the sidebar, the logo and breadcrumbs move the active tab, as does a list's link to
-  // one of its records; any other link goes to its own tab (an open one, or a new one);
-  // Ctrl / ⌘ / Shift or the middle button: a new tab behind
+  // in-app links move the active tab, but for those marked `data-open="tab"`, which go to their own
+  // tab (an open one, or a new one); Ctrl / ⌘ / Shift or the middle button: a new tab behind
   document.addEventListener(
     'click',
     (e) => {
@@ -311,7 +295,7 @@ if (!window.__cashbookTabs) {
       if (inner && inner !== link && link.contains(inner)) return;
       e.preventDefault();
       if (e.ctrlKey || e.metaKey || e.shiftKey) return openTab(to, { background: true, explicit: true });
-      if (link.closest('.side-nav, .brand, .crumbs')) return navigate(to);
+      if (link.closest('[data-open="tab"]')) return openTab(to);
       openLink(to);
     },
     true,

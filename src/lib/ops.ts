@@ -280,11 +280,26 @@ export const deleteTransaction = (d: Data, id: string): Data => ({
 
 // ---- debts ----
 
-export type DebtFields = Fields<Debt>;
+/** what the editor sets; the corrections come from adjustDebt */
+export type DebtFields = Omit<Fields<Debt>, 'adjustments'>;
 
 export function saveDebt(d: Data, f: DebtFields, id?: string) {
-  const { list, entity } = upsert(d.debts, f, id);
+  const old = id ? d.debts.find((x) => x.id === id) : undefined;
+  const { list, entity } = upsert(d.debts, { ...f, adjustments: old ? old.adjustments : [] }, id);
   return { data: { ...d, debts: list }, entity };
+}
+
+/**
+ * Correction of what is left to repay: it moves by `delta` from now on (a dated step, in the debt's
+ * asset); the starting amount and the transactions stay as they are.
+ */
+export function adjustDebt(d: Data, id: string, delta: number): Data {
+  if (!delta) return d;
+  const t = now();
+  return {
+    ...d,
+    debts: d.debts.map((x) => (x.id === id ? { ...x, adjustments: [...x.adjustments, { date: t, assetId: x.assetId, delta }], updatedAt: t } : x)),
+  };
 }
 
 /** The debt's transactions and templates stay, just no longer linked to it. */

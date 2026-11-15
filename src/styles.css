@@ -3990,6 +3990,19 @@ button.cal-yearbar {
   outline-offset: 3px;
 }
 
+/* outside the date filter's range: still there to be clicked, but stepped back */
+.cal-cell.off,
+.cal-month.off,
+.cal-yearbar.off {
+  opacity: 0.22;
+}
+
+.cal-cell.off:hover,
+.cal-month.off:hover,
+.cal-yearbar.off:hover {
+  opacity: 0.6;
+}
+
 /* scrolled to from the activity calendar: stop below the sticky top bar */
 .acc-tx {
   scroll-margin-top: 72px;
@@ -6730,4 +6743,116 @@ body:has(.modal-backdrop:not([hidden])) .topbar::after {
   background: rgb(10 14 18 / 45%);
   pointer-events: none;
   animation: fade-in 0.15s ease-out;
+}
+
+/* "no parent" in the parent category picker: an empty round slot where the others have a picture */
+.picker-none-icon {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 50%;
+  color: var(--muted);
+}
+
+/* the picture field with the built-in icons: a switch (icon | link) on top; for an icon, its colour
+   and the grid of icons in a box of its own that scrolls inside the dialog */
+.image-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.image-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.image-field > .segmented {
+  align-self: flex-start;
+}
+
+.image-icon-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.icon-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.icon-color {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+}
+
+.icon-color:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.icon-color.chosen {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.icon-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 210px;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.icon-group h3 {
+  margin: 0 0 6px 2px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 4px;
+}
+
+.icon-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  cursor: pointer;
+}
+
+.icon-cell:hover {
+  background: var(--surface);
+}
+
+.icon-cell.chosen {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
 }

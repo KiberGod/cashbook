@@ -2,7 +2,7 @@ import { DndContext, DragOverlay, MeasuringStrategy, closestCenter, pointerWithi
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Avatar, CardMenu, EmptyState, Field, Highlight, LinkList, SearchField } from '../components/bits';
+import { Avatar, CardMenu, EmptyState, Field, Highlight, LinkList, type Option, Picker, SearchField } from '../components/bits';
 import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { useTabNav } from '../components/Tabs';
@@ -397,7 +397,7 @@ function DeleteCategory({ category, onClose, onDeleted }: { category: Category; 
 }
 
 export function CategoryEditor({ category, parentId, onClose }: { category: Category | null; parentId?: string; onClose: () => void }) {
-  const { t } = useI18n();
+  const { t, tn } = useI18n();
   const rules = useTextRules();
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
@@ -410,6 +410,14 @@ export function CategoryEditor({ category, parentId, onClose }: { category: Cate
   // only root categories can be parents; a category with children stays a root
   const hasChildren = !!category && (ix.categoryChildren.get(category.id)?.length ?? 0) > 0;
   const roots = categoryTree(data.categories).map((n) => n.root).filter((c) => c.id !== category?.id);
+  // like the category pickers elsewhere: each root with its picture and how many sub-categories it has
+  const parentOptions: Option[] = [
+    { value: '', label: t('categories.noParent'), hint: t('categories.noParentHint'), icon: <span className="picker-none-icon"><Icon name="tag" size={14} /></span> },
+    ...roots.map((c) => {
+      const n = ix.categoryChildren.get(c.id)?.length ?? 0;
+      return { value: c.id, label: c.name, hint: n ? tn('counts.subcategories', n) : undefined, icon: <Avatar image={c.image} name={c.name} size={22} fallback="tag" /> };
+    }),
+  ];
 
   const errors = { name: rules.required(name), image: rules.url(image), description: rules.optional(description) };
   const invalid = Object.values(errors).some(Boolean);
@@ -431,17 +439,10 @@ export function CategoryEditor({ category, parentId, onClose }: { category: Cate
     <Modal title={category ? t('categories.edit') : t('categories.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
       <form id="entity-form" className="form" onSubmit={submit} noValidate>
         <NameField value={name} onChange={setName} error={err('name')} />
+        <ImageField value={image} onChange={setImage} error={err('image')} name={name} icons />
         <Field label={t('categories.parent')} hint={hasChildren ? t('categories.parentLocked') : undefined}>
-          <select className="select" value={parent} onChange={(e) => setParent(e.target.value)} disabled={hasChildren}>
-            <option value="">{t('categories.noParent')}</option>
-            {roots.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+          <Picker value={hasChildren ? '' : parent} onChange={setParent} options={parentOptions} disabled={hasChildren} ariaLabel={t('categories.parent')} />
         </Field>
-        <ImageField value={image} onChange={setImage} error={err('image')} name={name} />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
       </form>
     </Modal>

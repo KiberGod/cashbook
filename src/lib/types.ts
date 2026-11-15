@@ -7,6 +7,12 @@
 /** Forms of money. Fixed by the system, never stored in the spreadsheet. */
 export type FormId = 'cash' | 'bank' | 'crypto';
 export const FORMS: FormId[] = ['cash', 'bank', 'crypto'];
+
+/**
+ * Whether money can move between accounts of these forms: cash and bank between each other (a
+ * withdrawal, a top-up), crypto only with crypto. They must share an asset as well.
+ */
+export const formsLinkable = (a: FormId, b: FormId) => a === b || (a !== 'crypto' && b !== 'crypto');
 /** Only these forms can be attached to a financial service. */
 export const SERVICE_FORMS: FormId[] = ['bank', 'crypto'];
 
@@ -56,8 +62,9 @@ export interface Contact extends Timestamps {
 }
 
 /**
- * A balance correction: from `date` on, the balance of one asset of the account is `delta` off
- * what its transactions make it. Kept with the account, so its balance history has the step.
+ * A balance correction: from `date` on, the balance of one asset of the account (or what is left of
+ * a debt, in the debt's asset) is `delta` off what its transactions make it. Kept with the record,
+ * so its history has the step.
  */
 export interface Adjustment {
   date: string;
@@ -124,8 +131,10 @@ export interface Debt extends Timestamps {
   debtorId: string;
   /** contact who is owed */
   creditorId: string;
-  /** amount at creation; later changes come only from linked transactions */
+  /** amount at creation; later changes come from linked transactions and adjustments */
   amount: number;
+  /** corrections of what is left to repay made later, oldest first (in the debt's asset) */
+  adjustments: Adjustment[];
 }
 
 /**

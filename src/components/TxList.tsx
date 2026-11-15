@@ -71,7 +71,7 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
   const dirIcon = dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap';
   const picture = rich ? category?.image || parent?.image || '' : '';
   const categoryChip = category && (
-    <a className="chip" href={href.detail('categories', category.id)} onClick={(e) => e.stopPropagation()}>
+    <a className="chip" href={href.detail('categories', category.id)} data-open="tab" onClick={(e) => e.stopPropagation()}>
       <Icon name="tag" size={12} />
       {parent && (
         <>
@@ -83,7 +83,7 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
     </a>
   );
   const debtChip = debt && (
-    <a className="chip chip-debt" href={href.detail('debts', debt.id)} onClick={(e) => e.stopPropagation()}>
+    <a className="chip chip-debt" href={href.detail('debts', debt.id)} data-open="tab" onClick={(e) => e.stopPropagation()}>
       <Icon name="handshake" size={12} />
       <Highlight text={debt.name} query={q} />
     </a>
@@ -95,7 +95,9 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
   );
 
   return (
-    <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} data-href={href.transaction(tx.id)} onClick={() => openLink(href.transaction(tx.id))} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && openLink(href.transaction(tx.id))}>
+    <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} data-href={href.transaction(tx.id)}
+      // only a click on the row itself: one in its dialogs (React passes their events up through the portal) is not
+      onClick={(e) => e.currentTarget.contains(e.target as Node) && openLink(href.transaction(tx.id))} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && openLink(href.transaction(tx.id))}>
       {picture ? (
         <span className="tx-pic" title={t(`dir.${dir}`)}>
           <span className="tx-pic-img">

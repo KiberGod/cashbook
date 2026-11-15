@@ -179,7 +179,7 @@ function PointerMenu({ x, y, items, onClose }: { x: number; y: number; items: Me
  */
 export function LinkMenu() {
   const { t } = useI18n();
-  const [menu, setMenu] = useState<{ x: number; y: number; to: string; inTab: boolean } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; to: string } | null>(null);
   useEffect(() => {
     const onMenu = (e: MouseEvent) => {
       const target = e.target as Element | null;
@@ -191,7 +191,7 @@ export function LinkMenu() {
       if (!el || el.closest('.tab-strip')) return;
       const to = el.getAttribute('href') ?? el.getAttribute('data-href');
       if (!to || !to.startsWith('#')) return;
-      setMenu({ x: e.clientX, y: e.clientY, to, inTab: !!el.closest('.side-nav, .brand, .crumbs') });
+      setMenu({ x: e.clientX, y: e.clientY, to });
     };
     document.addEventListener('contextmenu', onMenu);
     return () => document.removeEventListener('contextmenu', onMenu);
@@ -204,7 +204,8 @@ export function LinkMenu() {
       y={menu.y}
       onClose={close}
       items={[
-        { label: t('ctx.open'), icon: 'chevronRight', onSelect: () => (menu.inTab ? navigateTab(getTabs().active, menu.to) : openLink(menu.to)) },
+        // exactly where it says, whatever a click on that link would do
+        { label: t('ctx.open'), icon: 'chevronRight', onSelect: () => navigateTab(getTabs().active, menu.to) },
         { label: t('ctx.openNewTab'), icon: 'plus', onSelect: () => newTab(menu.to, { background: true }) },
       ]}
     />

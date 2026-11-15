@@ -1,13 +1,14 @@
 import {
   FORMS,
   SERVICE_FORMS,
+  formsLinkable,
   type Data,
   type EntityKind,
   type FormId,
 } from './types';
 
 /**
- * Spreadsheet layout (schema v7). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v8). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
@@ -16,7 +17,7 @@ import {
  *   Accounts      id | name | description | form | assetIds | initialBalances | adjustments | requisite | contactId | serviceId | order | createdAt | updatedAt
  *   Categories    id | name | description | image | parentId | order | createdAt | updatedAt
  *   Transactions  id | date | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | createdAt | updatedAt
- *   Debts         id | name | description | assetId | debtorId | creditorId | amount | createdAt | updatedAt
+ *   Debts         id | name | description | assetId | debtorId | creditorId | amount | adjustments | createdAt | updatedAt
  *   Templates     id | name | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | order | createdAt | updatedAt
  *
  * In an encrypted spreadsheet every data sheet has a single column "data":
@@ -24,7 +25,7 @@ import {
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
  * Balances and adjustments are JSON in plain cells too.
  */
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 
@@ -126,6 +127,7 @@ export const COLUMNS: Record<EntityKind, Spec> = {
     ['debtorId', 'text'],
     ['creditorId', 'text'],
     ['amount', 'number'],
+    ['adjustments', 'adjustments'],
     ...STAMPS,
   ],
   templates: [
@@ -388,6 +390,7 @@ export function validateData(data: Data, lines: Map<string, number>): Validation
     if (!contactIds.has(d.debtorId)) broken('debts', d.id, `debtorId: ${d.debtorId}`);
     if (!contactIds.has(d.creditorId)) broken('debts', d.id, `creditorId: ${d.creditorId}`);
     if (d.debtorId === d.creditorId) bad('debts', d.id, 'creditorId');
+    for (const x of d.adjustments) if (x.assetId !== d.assetId || Number.isNaN(Date.parse(x.date))) bad('debts', d.id, 'adjustments');
   }
 
   for (const t of data.transactions) {
@@ -399,7 +402,7 @@ export function validateData(data: Data, lines: Map<string, number>): Validation
     const to = t.toId ? accounts.get(t.toId) : undefined;
     if (t.fromId && !from) broken('transactions', t.id, `fromId: ${t.fromId}`);
     if (t.toId && !to) broken('transactions', t.id, `toId: ${t.toId}`);
-    if (from && to && from.form !== to.form) bad('transactions', t.id, 'form');
+    if (from && to && !formsLinkable(from.form, to.form)) bad('transactions', t.id, 'form');
     if ((from && !from.assetIds.includes(t.assetId)) || (to && !to.assetIds.includes(t.assetId))) {
       bad('transactions', t.id, 'assetId');
     }

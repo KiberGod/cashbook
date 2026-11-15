@@ -56,6 +56,8 @@ const STEPS: Record<number, Step> = {
   5: (t) => ({ ...t, accounts: t.accounts.map((a) => ({ ...a, adjustments: a.adjustments ?? [] })) }),
   // a contact's own order of its accounts (on its page); none yet: the accounts list's order
   6: (t) => ({ ...t, contacts: t.contacts.map((c) => ({ ...c, accountOrder: c.accountOrder ?? [] })) }),
+  // what is left of a debt can be corrected later, as dated steps like an account's balance; none yet
+  7: (t) => ({ ...t, debts: t.debts.map((x) => ({ ...x, adjustments: x.adjustments ?? [] })) }),
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

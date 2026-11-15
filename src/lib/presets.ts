@@ -37,29 +37,33 @@ const SERVICES: { name: L | string; kind: L; image: string; forms: FormId[] }[] 
   { name: 'Tonkeeper', kind: WALLET, image: 'builtin:tonkeeper', forms: ['crypto'] },
 ];
 
-const CATEGORIES: { name: L; children: L[] }[] = [
+// each with one of the built-in category icons ('builtin:cat-<id>'), changeable like any picture
+const CATEGORIES: { name: L; icon: string; children: { name: L; icon: string }[] }[] = [
   {
     name: { uk: 'Їжа', en: 'Food', ru: 'Еда' },
+    icon: 'food',
     children: [
-      { uk: 'Продукти', en: 'Groceries', ru: 'Продукты' },
-      { uk: 'Фастфуд', en: 'Fast food', ru: 'Фастфуд' },
+      { name: { uk: 'Продукти', en: 'Groceries', ru: 'Продукты' }, icon: 'groceries' },
+      { name: { uk: 'Фастфуд', en: 'Fast food', ru: 'Фастфуд' }, icon: 'fastfood' },
     ],
   },
-  { name: { uk: 'Покупки', en: 'Shopping', ru: 'Покупки' }, children: [] },
-  { name: { uk: 'Підписки', en: 'Subscriptions', ru: 'Подписки' }, children: [{ uk: 'YouTube', en: 'YouTube', ru: 'YouTube' }] },
+  { name: { uk: 'Покупки', en: 'Shopping', ru: 'Покупки' }, icon: 'shopping', children: [] },
+  { name: { uk: 'Підписки', en: 'Subscriptions', ru: 'Подписки' }, icon: 'subscriptions', children: [{ name: { uk: 'YouTube', en: 'YouTube', ru: 'YouTube' }, icon: 'movies' }] },
   {
     name: { uk: 'Подарунки', en: 'Gifts', ru: 'Подарки' },
-    children: [{ uk: 'На день народження', en: 'Birthday', ru: 'На день рождения' }],
+    icon: 'gift',
+    children: [{ name: { uk: 'На день народження', en: 'Birthday', ru: 'На день рождения' }, icon: 'events' }],
   },
   {
     name: { uk: 'Комуналка', en: 'Utilities', ru: 'Коммуналка' },
+    icon: 'power',
     children: [
-      { uk: 'Оренда житла', en: 'Rent', ru: 'Аренда жилья' },
-      { uk: 'WiFi', en: 'WiFi', ru: 'WiFi' },
-      { uk: 'Телефон', en: 'Phone', ru: 'Телефон' },
+      { name: { uk: 'Оренда житла', en: 'Rent', ru: 'Аренда жилья' }, icon: 'rent' },
+      { name: { uk: 'WiFi', en: 'WiFi', ru: 'WiFi' }, icon: 'internet' },
+      { name: { uk: 'Телефон', en: 'Phone', ru: 'Телефон' }, icon: 'phone' },
     ],
   },
-  { name: { uk: 'Бізнес', en: 'Business', ru: 'Бизнес' }, children: [] },
+  { name: { uk: 'Бізнес', en: 'Business', ru: 'Бизнес' }, icon: 'work', children: [] },
 ];
 
 const SELF: L = { uk: 'Я', en: 'Me', ru: 'Я' };
@@ -95,9 +99,9 @@ export function presetData(lang: Lang): Data {
   const categories: Category[] = [];
   CATEGORIES.forEach((c, i) => {
     const id = newId();
-    categories.push({ id, name: pick(c.name, lang), description: '', image: '', parentId: '', order: i, ...stamps });
+    categories.push({ id, name: pick(c.name, lang), description: '', image: `builtin:cat-${c.icon}`, parentId: '', order: i, ...stamps });
     c.children.forEach((ch, j) => {
-      categories.push({ id: newId(), name: pick(ch, lang), description: '', image: '', parentId: id, order: j, ...stamps });
+      categories.push({ id: newId(), name: pick(ch.name, lang), description: '', image: `builtin:cat-${ch.icon}`, parentId: id, order: j, ...stamps });
     });
   });
 

@@ -1,4 +1,6 @@
-// Built-in pictures for the preset assets and services, referenced from the spreadsheet as
+import { categoryIconSvg, parseCategoryIcon } from './categoryIcons';
+
+// Built-in pictures for the preset assets and services (and the category icons), referenced from the spreadsheet as
 // 'builtin:<slug>' so they never depend on third-party links. Vector marks come from
 // simple-icons and cryptocurrency-icons (CC0); the other brands are 128px WebP files in
 // ./brands, named by slug and bundled by Vite.
@@ -32,7 +34,9 @@ export function resolveImage(src: string): string {
   if (!src.startsWith(BUILTIN_PREFIX)) return src;
   const slug = src.slice(BUILTIN_PREFIX.length);
   if (!cache.has(slug)) {
-    const svg = SVG[slug];
+    // a category icon, in its colour: 'cat-<id>[@<colour>]'
+    const cat = parseCategoryIcon(slug);
+    const svg = cat ? categoryIconSvg(cat.icon, cat.color) : SVG[slug];
     cache.set(slug, svg ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` : (RASTER[slug] ?? ''));
   }
   return cache.get(slug)!;

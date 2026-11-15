@@ -3,7 +3,7 @@ import { useI18n } from '../i18n';
 import { amountInput, money, parseAmount, toLocalInput } from '../lib/format';
 import { categoryTree, deleteTemplate, saveTemplate, saveTransaction } from '../lib/ops';
 import { debtEffect, getIndex, sortAccountsForPicker, type Index } from '../lib/stats';
-import { LIMITS, type Account, type Asset, type Category, type Debt, type Template, type Transaction } from '../lib/types';
+import { LIMITS, formsLinkable, type Account, type Asset, type Category, type Debt, type Template, type Transaction } from '../lib/types';
 import { mutate, useStore } from '../store/store';
 import { tabHash, useTabs } from '../store/tabs';
 import { closeTemplateForm, closeTxForm, showToast, useUi } from '../store/ui';
@@ -14,6 +14,7 @@ import { NameField, useTextRules } from './forms';
 import { Icon } from '../icons/ui';
 import { ConfirmDialog, Modal } from './Modal';
 import { DeleteTx } from './TxList';
+import { AmountInput } from './AmountInput';
 
 /**
  * The asset at the end of an amount field: a small picker with the assets' pictures when there is
@@ -97,7 +98,7 @@ export function TemplateFormHost() {
 /** The fields of a transaction or a template the editor starts from (a template's amount may be unset). */
 type Draft = Partial<Omit<Transaction, 'amount'> & Omit<Template, 'amount'>> & { amount?: number | null };
 
-const compatible = (a: Account, b: Account) => a.form === b.form && a.assetIds.some((x) => b.assetIds.includes(x));
+const compatible = (a: Account, b: Account) => formsLinkable(a.form, b.form) && a.assetIds.some((x) => b.assetIds.includes(x));
 
 /**
  * One side of the transaction: the accounts grouped by their contact (the contact's picture in
@@ -124,7 +125,8 @@ function AccountSelect({
   const { t, locale } = useI18n();
   const all = useStore((s) => s.data.accounts);
   const options = useMemo(() => {
-    // the other side narrows the choice to accounts of the same form sharing an asset
+    // the other side narrows the choice to accounts it can send to / receive from (cash and bank
+    // together, crypto apart) sharing an asset
     const list = sortAccountsForPicker(
       ix,
       all.filter((a) => a.id !== other?.id && (!other || compatible(a, other)) && (!onlyAsset || a.assetIds.includes(onlyAsset))),
@@ -458,7 +460,7 @@ function TxForm({
           <AccountSelect ix={ix} value={toId} onChange={setToId} other={from} onlyAsset={debtAsset} label={t('tx.to')} error={err('accounts')} />
           <Field label={t('tx.amount')} error={err('amount')} group>
             <span className="amount-input">
-              <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={asTemplate ? t('templates.amountLater') : '0'} />
+              <AmountInput value={amount} onChange={setAmount} decimals={asset?.decimals} placeholder={asTemplate ? t('templates.amountLater') : '0'} aria-label={t('tx.amount')} />
               <AssetChoice assets={assetOptions} value={asset} onChange={setAssetId} label={t('tx.asset')} />
             </span>
           </Field>
@@ -477,7 +479,7 @@ function TxForm({
             group
           >
             <span className="amount-input">
-              <input type="text" inputMode="decimal" value={fromId ? fee : ''} onChange={(e) => setFee(e.target.value)} placeholder="0" disabled={!fromId} aria-label={t('tx.fee')} />
+              <AmountInput value={fromId ? fee : ''} onChange={setFee} decimals={feeAsset?.decimals} placeholder="0" disabled={!fromId} aria-label={t('tx.fee')} />
               <AssetChoice assets={feeOptions} value={feeAsset} onChange={setFeeAssetId} label={t('tx.feeAsset')} disabled={!fromId} />
             </span>
           </Field>

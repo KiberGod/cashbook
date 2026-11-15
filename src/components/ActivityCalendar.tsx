@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { toLocalInput } from '../lib/format';
@@ -28,6 +28,8 @@ const yearRange = (y: number) => rangeOf(new Date(y, 0, 1), new Date(y, 11, 31, 
  * Activity calendar: how many transactions happened per day (a year as a week grid),
  * per month or per year. With `pick`, a day, month or year can be clicked to choose it as
  * a time range (clicking the chosen one again clears it); the chosen one is outlined.
+ * The other way round, any range set in the date filter shows on it: what lies outside is
+ * dimmed, and it turns to the year the range starts in.
  */
 export function ActivityCalendar({
   txs,
@@ -71,6 +73,19 @@ export function ActivityCalendar({
   }, [locale]);
 
   const chosen = (r: CalendarRange) => !!pick && pick.value.from === r.from && pick.value.to === r.to;
+  // a cell outside the filter's range (an open end reaches as far as it goes): dimmed; one it
+  // only touches (a range starting at 14:00 on a day) still counts as in it. Same-shape local
+  // "YYYY-MM-DDTHH:mm" values compare as text.
+  const from = pick?.value.from ?? '';
+  const to = pick?.value.to ?? '';
+  const outside = (r: CalendarRange) => (!!from && r.to < from) || (!!to && r.from > to);
+
+  // a range set in the filter (typed, or picked here): the calendar turns to its year
+  const rangeYear = Number((from || to).slice(0, 4)) || null;
+  useEffect(() => {
+    if (rangeYear && years.includes(rangeYear)) setYear(rangeYear);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeYear]);
   const choose = (r: CalendarRange) => pick?.onChange(chosen(r) ? null : r);
 
   const header = (
@@ -140,7 +155,7 @@ export function ActivityCalendar({
                   return (
                     <span
                       key={d.getTime()}
-                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'} ${pick && inYear ? 'pickable' : ''} ${inYear && chosen(r) ? 'chosen' : ''}`}
+                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'} ${pick && inYear ? 'pickable' : ''} ${inYear && chosen(r) ? 'chosen' : ''} ${inYear && outside(r) ? 'off' : ''}`}
                       title={inYear ? `${date(d.getTime())}: ${tn('counts.transactions', n)}` : undefined}
                       onClick={pick && inYear ? () => choose(r) : undefined}
                     />
@@ -173,7 +188,7 @@ export function ActivityCalendar({
               <Tag
                 key={m}
                 type={pick ? 'button' : undefined}
-                className={`cal-month l${level(n, max)} ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''}`}
+                className={`cal-month l${level(n, max)} ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) ? 'off' : ''}`}
                 title={tn('counts.transactions', n)}
                 aria-pressed={pick ? chosen(r) : undefined}
                 onClick={pick ? () => choose(r) : undefined}
@@ -205,7 +220,7 @@ export function ActivityCalendar({
             <Tag
               key={y}
               type={pick ? 'button' : undefined}
-              className={`cal-yearbar ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''}`}
+              className={`cal-yearbar ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) ? 'off' : ''}`}
               aria-pressed={pick ? chosen(r) : undefined}
               onClick={pick ? () => choose(r) : undefined}
             >

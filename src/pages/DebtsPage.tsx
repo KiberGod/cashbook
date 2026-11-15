@@ -8,16 +8,17 @@ import { ConfirmDialog, Modal } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
-import { parseAmount } from '../lib/format';
-import { deleteDebt, saveDebt } from '../lib/ops';
+import { money, parseAmount } from '../lib/format';
+import { adjustDebt, deleteDebt, saveDebt } from '../lib/ops';
 import { matchesAny } from '../lib/search';
-import { debtEffect, getIndex, templatesUsing } from '../lib/stats';
+import { debtEffect, getIndex, round, templatesUsing } from '../lib/stats';
 import type { Asset, Contact, Debt, Transaction } from '../lib/types';
 import { href } from '../router';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
 import { RelatedTemplates, TemplateNames } from '../components/Templates';
+import { AmountInput } from '../components/AmountInput';
 
 type Status = 'open' | 'closed' | 'all';
 
@@ -76,6 +77,7 @@ export function DebtRow({ d, q = '', onEdit, onDelete }: { d: Debt; q?: string; 
   const asset = ix.assets.get(d.assetId);
   const debtor = ix.contacts.get(d.debtorId);
   const creditor = ix.contacts.get(d.creditorId);
+  const [adjust, setAdjust] = useState(false);
   return (
     <a className="row" href={href.detail('debts', d.id)}>
       <div className="row-main">
@@ -93,17 +95,19 @@ export function DebtRow({ d, q = '', onEdit, onDelete }: { d: Debt; q?: string; 
           </span>
           <ContactChip contact={creditor} query={q} href={creditor && href.detail('contacts', creditor.id)} inLink />
         </div>
-        <DebtBar repaid={s.repaid} total={d.amount + s.added} asset={asset} debtor={debtor} creditor={creditor} />
+        <DebtBar repaid={s.repaid} total={s.total} asset={asset} debtor={debtor} creditor={creditor} />
       </div>
       {(onEdit || onDelete) && (
         <CardMenu
           actions={[
             { label: t('debts.addPayment'), icon: 'plus', onSelect: () => openTxForm({ prefill: { debtId: d.id, assetId: d.assetId } }) },
             ...(onEdit ? [{ label: t('common.edit'), icon: 'edit' as const, onSelect: onEdit }] : []),
+            { label: t('debts.adjust'), icon: 'scale', onSelect: () => setAdjust(true) },
             ...(onDelete ? [{ label: t('common.delete'), icon: 'trash' as const, danger: true, onSelect: onDelete }] : []),
           ]}
         />
       )}
+      {adjust && <DebtAdjustment debt={d} onClose={() => setAdjust(false)} />}
     </a>
   );
 }
@@ -198,6 +202,7 @@ export function DebtDetail({ id }: { id: string }) {
   const debt = ix.debts.get(id);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
+  const [adjust, setAdjust] = useState(false);
   const s = ix.debt.get(id);
   // seen from the creditor's accounts: a repayment is incoming
   const side = useMemo(() => new Set(debt ? (ix.contact.get(debt.creditorId)?.accounts.map((a) => a.id) ?? []) : []), [debt, ix]);
@@ -233,6 +238,10 @@ export function DebtDetail({ id }: { id: string }) {
             <button type="button" className="btn" onClick={() => setEdit(true)}>
               <Icon name="edit" size={18} />
               {t('common.edit')}
+            </button>
+            <button type="button" className="btn" onClick={() => setAdjust(true)}>
+              <Icon name="scale" size={18} />
+              {t('debts.adjust')}
             </button>
             <button type="button" className="btn btn-danger-ghost" onClick={() => setDel(true)}>
               <Icon name="trash" size={18} />
@@ -271,14 +280,29 @@ export function DebtDetail({ id }: { id: string }) {
           <div className="cells">
             <div className="cell">
               <span className="cell-label">{t('debts.total')}</span>
-              <Money value={debt.amount + s.added} asset={asset} />
+              <Money value={s.total} asset={asset} />
             </div>
             <div className="cell">
               <span className="cell-label">{t('debts.repaid')}</span>
               <Money value={s.repaid} asset={asset} />
             </div>
           </div>
-          <DebtBar repaid={s.repaid} total={debt.amount + s.added} asset={asset} debtor={debtor} creditor={creditor} />
+          <DebtBar repaid={s.repaid} total={s.total} asset={asset} debtor={debtor} creditor={creditor} />
+          {/* the corrections made after it was created, oldest first: when and by how much */}
+          {debt.adjustments.length > 0 && (
+            <div className="cell">
+              <span className="cell-label">{t('debts.adjustments')}</span>
+              <ul className="adjust-list debt-adjustments">
+                {debt.adjustments.map((x, i) => (
+                  <li key={i}>
+                    <span className="muted">{i18n.dateTime(x.date)}</span>
+                    {/* neither good nor bad in itself: it depends on the side one is on */}
+                    <span className="money">{money(i18n, x.delta, asset, { sign: true })}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="cell">
             <span className="cell-label">{t('common.description')}</span>
             <span className="pre">{debt.description || <span className="muted">—</span>}</span>
@@ -308,8 +332,85 @@ export function DebtDetail({ id }: { id: string }) {
         empty={t('debts.noHistory')}
       />
       {edit && <DebtEditor debt={debt} onClose={() => setEdit(false)} />}
+      {adjust && <DebtAdjustment debt={debt} onClose={() => setAdjust(false)} />}
       {del && <DeleteDebt debt={debt} onClose={() => setDel(false)} onDeleted={() => tabNav.navigate(href.list('debts'), { replace: true })} />}
     </>
+  );
+}
+
+/**
+ * Correction of what is left to repay, after the fact (like an account's balance): the new amount
+ * left is entered, the difference becomes a dated step of the debt; its starting amount and
+ * transactions stay as they are. Confirmed before it is saved.
+ */
+export function DebtAdjustment({ debt, onClose }: { debt: Debt; onClose: () => void }) {
+  const i18n = useI18n();
+  const { t } = i18n;
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const asset = ix.assets.get(debt.assetId);
+  const current = ix.debt.get(debt.id)?.remaining ?? 0;
+  const [value, setValue] = useState(() => String(current));
+  const [tried, setTried] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const parsed = value.trim() ? parseAmount(value) : 0;
+  const error = parsed === null ? t('form.badNumber') : null;
+  const diff = parsed === null ? 0 : round(parsed - current);
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    setTried(true);
+    if (error) return;
+    setConfirm(true);
+  };
+  const save = () => {
+    mutate((d) => adjustDebt(d, debt.id, diff));
+    onClose();
+  };
+
+  return (
+    <Modal title={t('debts.adjustTitle', { name: debt.name })} onClose={onClose} footer={<FormFooter onCancel={onClose} disabled={diff === 0} />}>
+      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+        <div className="warn-box">
+          <Icon name="alert" />
+          <div>
+            <strong>{t('debts.adjustWarnTitle')}</strong>
+            <p>{t('debts.adjustWarnText')}</p>
+          </div>
+        </div>
+        <div className="initial-row">
+          <Field label={t('debts.newRemaining', { code: asset?.code ?? '' })} error={tried ? error : null}>
+            <AmountInput value={value} onChange={setValue} decimals={asset?.decimals} placeholder="0" autoFocus />
+          </Field>
+          {/* what is left now, and by how much the adjustment moves it */}
+          <div className="initial-preview">
+            <span className="cell-label">{t('debts.toRepay')}</span>
+            <span className="initial-preview-values">
+              {money(i18n, current, asset)}
+              {diff !== 0 && <span className="money">({money(i18n, diff, asset, { sign: true })})</span>}
+            </span>
+          </div>
+        </div>
+      </form>
+      {confirm && (
+        <ConfirmDialog
+          title={t('debts.adjustConfirmTitle')}
+          text={t('debts.adjustConfirmText', { name: debt.name })}
+          confirmLabel={t('accounts.adjustConfirm')}
+          onConfirm={save}
+          onClose={() => setConfirm(false)}
+        >
+          <ul className="adjust-list">
+            <li>
+              <AssetIcon asset={asset} size={18} />
+              <span className="muted">{money(i18n, current, asset)}</span>
+              <Icon name="chevronRight" size={14} className="muted" />
+              <strong>{money(i18n, parsed ?? 0, asset)}</strong>
+            </li>
+          </ul>
+        </ConfirmDialog>
+      )}
+    </Modal>
   );
 }
 
@@ -360,7 +461,8 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
     ...contacts.map((o) => (o.value === other ? { ...o, disabled: true } : o)),
   ];
   const assets: Option[] = data.assets.map((a) => ({ value: a.id, label: a.code, icon: <AssetIcon asset={a} size={22} /> }));
-  const amountN = parseAmount(amount);
+  // left empty: a debt starting from zero (it grows with its transactions)
+  const amountN = amount.trim() ? parseAmount(amount) : 0;
 
   const errors = {
     name: rules.required(name),
@@ -424,7 +526,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
           </Field>
           <span className="swap-spacer" />
           <Field label={t('debts.initial')} error={err('amount')}>
-            <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} disabled={locked} placeholder="0" />
+            <AmountInput value={amount} onChange={setAmount} decimals={data.assets.find((a) => a.id === assetId)?.decimals} disabled={locked} placeholder="0" />
           </Field>
         </div>
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />

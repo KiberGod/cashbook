@@ -26,6 +26,7 @@ import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
 import { RelatedTemplates, TemplateNames } from '../components/Templates';
+import { AmountInput } from '../components/AmountInput';
 
 
 const NO_CONTACT = '__none__';
@@ -345,7 +346,16 @@ export function AccountDetail({ id }: { id: string }) {
       />
       <nav className="page-tabs" role="tablist" aria-label={account.name}>
         {PAGE_TABS.map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={pageTab === k} className={pageTab === k ? 'active' : ''} onClick={() => setPageTab(k)}>
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={pageTab === k}
+            className={pageTab === k ? 'active' : ''}
+            // its address: the right-click menu (open here / in a new tab) and the middle button
+            data-href={href.detail('accounts', id) + (k === 'overview' ? '' : `?tab=${k}`)}
+            onClick={() => setPageTab(k)}
+          >
             <Icon name={TAB_ICON[k]} size={16} />
             <span className="page-tab-label">{t(`accounts.page.${k}`)}</span>
           </button>
@@ -722,7 +732,7 @@ export function BalanceAdjustment({ account, onClose }: { account: Account; onCl
           return (
             <div key={x} className="initial-row">
               <Field label={t('accounts.newBalanceFor', { code: asset?.code ?? '' })} error={tried ? errors[x] : null}>
-                <input type="text" inputMode="decimal" value={values[x] ?? ''} onChange={(e) => setValues({ ...values, [x]: e.target.value })} placeholder="0" />
+                <AmountInput value={values[x] ?? ''} onChange={(v) => setValues((prev) => ({ ...prev, [x]: v }))} decimals={asset?.decimals} placeholder="0" />
               </Field>
               {/* the balance now, and by how much the adjustment moves it */}
               <div className="initial-preview">
@@ -901,13 +911,7 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
                 const a = ix.assets.get(x);
                 return (
                   <Field key={x} label={t('accounts.initialFor', { code: a?.code ?? '' })} error={tried ? balanceErrors[x] : null}>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={balances[x] ?? ''}
-                      onChange={(e) => setBalances({ ...balances, [x]: e.target.value })}
-                      placeholder="0"
-                    />
+                    <AmountInput value={balances[x] ?? ''} onChange={(v) => setBalances((prev) => ({ ...prev, [x]: v }))} decimals={a?.decimals} placeholder="0" />
                   </Field>
                 );
               })}

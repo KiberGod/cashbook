@@ -47,10 +47,14 @@ export interface ContactStats {
 export interface DebtStats {
   /** what the debtor still owes; < 0 when overpaid (the debt is closed then, it never turns around) */
   remaining: number;
-  /** nothing left to pay */
+  /** repaid: something was owed and nothing is left (a debt that has owed nothing yet is open) */
   closed: boolean;
   added: number;
   repaid: number;
+  /** what the adjustments add up to (+ more owed, - less) */
+  adjusted: number;
+  /** the whole debt: the starting amount, what transactions added and the adjustments */
+  total: number;
   txs: Transaction[];
 }
 
@@ -221,7 +225,7 @@ function build(d: Data): Index {
 
   // debts
   const debt = new Map<string, DebtStats>();
-  for (const x of d.debts) debt.set(x.id, { remaining: x.amount, closed: x.amount <= 0, added: 0, repaid: 0, txs: [] });
+  for (const x of d.debts) debt.set(x.id, { remaining: x.amount, closed: x.amount <= 0, added: 0, repaid: 0, adjusted: 0, total: x.amount, txs: [] });
   const debtsById = byId(d.debts);
   for (const t of txSorted) {
     if (!t.debtId) continue;
@@ -237,6 +241,13 @@ function build(d: Data): Index {
   }
   for (const x of d.debts) {
     const s = debt.get(x.id)!;
+    s.adjusted = round(x.adjustments.reduce((sum, a) => sum + a.delta, 0));
+    s.remaining = round(s.remaining + s.adjusted);
+    s.total = round(x.amount + s.added + s.adjusted);
+    // closed = repaid: something was owed once and nothing is left; a debt that has owed nothing
+    // yet (created at zero, to grow with its transactions) is still open
+    const owedOnce = x.amount > 0 || s.added > 0 || x.adjustments.some((a) => a.delta > 0);
+    s.closed = s.remaining <= 0 && owedOnce;
     contact.get(x.debtorId)?.debts.push(x);
     contact.get(x.creditorId)?.debts.push(x);
     if (s.closed) continue; // an overpayment is not a debt the other way

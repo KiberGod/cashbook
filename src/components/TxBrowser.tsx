@@ -13,6 +13,7 @@ import { DateTimeField } from './DateTimeField';
 import { useFilterOptions } from './TxFilters';
 import { directionOf, TxList } from './TxList';
 import { useViewState } from './viewState';
+import { AmountInput } from './AmountInput';
 
 /** Filters of a record's transactions (an account's, a debt's); `dir` is seen from that record. */
 interface TxBrowserFilter {
@@ -25,6 +26,8 @@ interface TxBrowserFilter {
   toAccounts: string[];
   categories: string[];
   services: string[];
+  /** optional: filters remembered before it existed have none */
+  assets?: string[];
   minAmount: string;
   maxAmount: string;
   /** local date-time, as a datetime-local input gives it */
@@ -32,10 +35,10 @@ interface TxBrowserFilter {
   to: string;
 }
 
-const EMPTY: TxBrowserFilter = { q: '', dir: 'all', ownAccounts: [], toContacts: [], fromAccounts: [], toAccounts: [], categories: [], services: [], minAmount: '', maxAmount: '', from: '', to: '' };
+const EMPTY: TxBrowserFilter = { q: '', dir: 'all', ownAccounts: [], toContacts: [], fromAccounts: [], toAccounts: [], categories: [], services: [], assets: [], minAmount: '', maxAmount: '', from: '', to: '' };
 
 const countFilters = (f: TxBrowserFilter) =>
-  [f.dir !== 'all', f.ownAccounts?.length, f.toContacts.length, f.fromAccounts?.length, f.toAccounts.length, f.categories.length, f.services.length, f.minAmount || f.maxAmount, f.from || f.to].filter(Boolean).length;
+  [f.dir !== 'all', f.ownAccounts?.length, f.toContacts.length, f.fromAccounts?.length, f.toAccounts.length, f.categories.length, f.services.length, f.assets?.length, f.minAmount || f.maxAmount, f.from || f.to].filter(Boolean).length;
 
 type Dir = 'in' | 'out' | 'other';
 
@@ -47,6 +50,7 @@ function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t
   const fromAccounts = set(f.fromAccounts ?? []);
   const toAccounts = set(f.toAccounts);
   const services = set(f.services);
+  const assets = set(f.assets ?? []);
   const categories = f.categories.length ? withChildren(ix, f.categories) : null;
   const num = (v: string) => (v.trim() ? parseAmount(v) : null);
   const min = num(f.minAmount);
@@ -59,6 +63,7 @@ function filterTxs(ix: Index, list: Transaction[], f: TxBrowserFilter, dirOf: (t
     if (toContacts && !toContacts.has((x.toId && ix.accounts.get(x.toId)?.contactId) || NONE)) return false;
     if (categories && !categories.has(x.categoryId || NONE)) return false;
     if (services && !services.has(ix.accounts.get(x.fromId)?.serviceId ?? '') && !services.has(ix.accounts.get(x.toId)?.serviceId ?? '')) return false;
+    if (assets && !assets.has(x.assetId)) return false;
     if (min !== null && x.amount < min) return false;
     if (max !== null && x.amount > max) return false;
     // the same fields as on the transactions page
@@ -121,6 +126,11 @@ export function TxBrowser({
   const setToContacts = (toContacts: string[]) => setF((prev) => ({ ...prev, toContacts, toAccounts: prev.toAccounts.filter((a) => fitsContacts(a, toContacts)) }));
 
   const ownOptions = own ? opts.accounts.filter((o) => own.includes(o.value)) : [];
+  // only the assets the record's transactions are in
+  const assetOptions = useMemo(() => {
+    const used = new Set(txs.map((x) => x.assetId));
+    return opts.assets.filter((o) => used.has(o.value));
+  }, [txs, opts.assets]);
   const sideOptions = fromTo ? opts.accountsWithNone.filter((o) => o.value === NONE || fromTo.includes(o.value)) : [];
 
   // the calendar shows what the search and filters find on any date; the list, only within the chosen dates
@@ -228,13 +238,14 @@ export function TxBrowser({
                 />
                 <MultiSelect label={t('filter.category')} options={opts.categories} value={f.categories} onChange={setFilter('categories')} />
                 <MultiSelect label={t('filter.service')} options={opts.services} value={f.services} onChange={setFilter('services')} />
+                <MultiSelect label={t('filter.asset')} options={assetOptions} value={f.assets ?? []} onChange={setFilter('assets')} />
               </div>
             </div>
             <Field label={t('filter.amount')} group>
               <span className="range-input">
-                <input type="text" inputMode="decimal" value={f.minAmount} onChange={(e) => setFilter('minAmount')(e.target.value)} placeholder={t('filter.min')} aria-label={`${t('filter.amount')}, ${t('filter.min')}`} />
+                <AmountInput value={f.minAmount} onChange={setFilter('minAmount')} placeholder={t('filter.min')} aria-label={`${t('filter.amount')}, ${t('filter.min')}`} />
                 <span>–</span>
-                <input type="text" inputMode="decimal" value={f.maxAmount} onChange={(e) => setFilter('maxAmount')(e.target.value)} placeholder={t('filter.max')} aria-label={`${t('filter.amount')}, ${t('filter.max')}`} />
+                <AmountInput value={f.maxAmount} onChange={setFilter('maxAmount')} placeholder={t('filter.max')} aria-label={`${t('filter.amount')}, ${t('filter.max')}`} />
               </span>
             </Field>
             <Field label={t('filter.dateTime')} group>

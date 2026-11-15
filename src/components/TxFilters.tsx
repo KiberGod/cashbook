@@ -8,6 +8,7 @@ import { FORMS } from '../lib/types';
 import { useStore } from '../store/store';
 import { AccountIcon, AssetIcon, Avatar, Field, MultiSelect, Picker, useContactOptions, type Option } from './bits';
 import { DateTimeField } from './DateTimeField';
+import { AmountInput } from './AmountInput';
 
 /** Option lists for the filter dropdowns, shared by the transactions page and analytics. */
 export function useFilterOptions(ix: Index) {
@@ -120,9 +121,9 @@ export function TxFilterGroups({
       </div>
       <Field label={t('filter.amount')} group>
         <span className="range-input">
-          <input type="text" inputMode="decimal" value={f.minAmount} onChange={(e) => set('minAmount')(e.target.value)} placeholder={t('filter.min')} aria-label={`${t('filter.amount')}, ${t('filter.min')}`} />
+          <AmountInput value={f.minAmount} onChange={set('minAmount')} placeholder={t('filter.min')} aria-label={`${t('filter.amount')}, ${t('filter.min')}`} />
           <span>–</span>
-          <input type="text" inputMode="decimal" value={f.maxAmount} onChange={(e) => set('maxAmount')(e.target.value)} placeholder={t('filter.max')} aria-label={`${t('filter.amount')}, ${t('filter.max')}`} />
+          <AmountInput value={f.maxAmount} onChange={set('maxAmount')} placeholder={t('filter.max')} aria-label={`${t('filter.amount')}, ${t('filter.max')}`} />
         </span>
       </Field>
       {dates && (

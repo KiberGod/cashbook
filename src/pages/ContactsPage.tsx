@@ -167,6 +167,8 @@ export function ContactDetail({ id }: { id: string }) {
             title={t(`contacts.page.${k}`)}
             // the detective keeps to the far right of the row
             className={`${pageTab === k ? 'active' : ''} ${k === 'detective' ? 'page-tab-end' : ''}`}
+            // its address: the right-click menu (open here / in a new tab) and the middle button
+            data-href={href.detail('contacts', id) + (k === 'overview' ? '' : `?tab=${k}`)}
             onClick={() => setPageTab(k)}
           >
             <Icon name={TAB_ICON[k]} size={16} />

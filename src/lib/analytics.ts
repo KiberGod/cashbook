@@ -89,7 +89,8 @@ function matcher(ix: Index, f: TxFilter) {
     if (toContacts && !toContacts.has(contactOf(t.toId))) return false;
     const fromAcc = ix.accounts.get(t.fromId);
     const toAcc = ix.accounts.get(t.toId);
-    if (forms && !forms.has((fromAcc ?? toAcc)?.form ?? '')) return false;
+    // between cash and bank: found under either form
+    if (forms && !forms.has(fromAcc?.form ?? '') && !forms.has(toAcc?.form ?? '')) return false;
     if (assets && !assets.has(t.assetId)) return false;
     if (categories && !categories.has(t.categoryId || NONE)) return false;
     if (services && !services.has(fromAcc?.serviceId ?? '') && !services.has(toAcc?.serviceId ?? '')) return false;

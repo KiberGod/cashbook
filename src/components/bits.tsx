@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject, type SyntheticEvent, type TextareaHTMLAttributes } from 'react';
 import { createPortal } from 'react-dom';
-import { openLink } from '../store/tabs';
+import { openTab } from '../store/tabs';
 import { resolveImage } from '../icons/builtin';
 import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -89,16 +89,17 @@ export function ContactChip({
     const go = (e: SyntheticEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      openLink(href);
+      openTab(href);
     };
+    // a contact opens in its own tab (the one that has it, or a new one)
     return (
-      <span className={cls} role="link" tabIndex={0} data-href={href} onClick={go} onKeyDown={(e) => e.key === 'Enter' && go(e)}>
+      <span className={cls} role="link" tabIndex={0} data-href={href} data-open="tab" onClick={go} onKeyDown={(e) => e.key === 'Enter' && go(e)}>
         {inner}
       </span>
     );
   }
   return href ? (
-    <a className={cls} href={href}>
+    <a className={cls} href={href} data-open="tab">
       {inner}
     </a>
   ) : (
