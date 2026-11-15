@@ -12,7 +12,7 @@ import { AccountIcon, AssetIcon, AutoTextarea, Avatar, ContactChip, Field, InfoT
 import { DateTimeField } from './DateTimeField';
 import { NameField, useTextRules } from './forms';
 import { Icon } from '../icons/ui';
-import { ConfirmDialog, Modal } from './Modal';
+import { ConfirmDialog, Modal, ModalForm, ModalSubmit } from './Modal';
 import { DeleteTx } from './TxList';
 import { AmountInput } from './AmountInput';
 
@@ -437,13 +437,11 @@ function TxForm({
           <button type="button" className="btn" onClick={close}>
             {t('common.cancel')}
           </button>
-          <button type="submit" form="tx-form" className="btn btn-primary">
-            {editing ? t('common.save') : t('common.create')}
-          </button>
+          <ModalSubmit className="btn btn-primary">{editing ? t('common.save') : t('common.create')}</ModalSubmit>
         </>
       }
     >
-      <form id="tx-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         {asTemplate && <NameField value={name} onChange={setName} error={err('name')} placeholder={t('templates.namePlaceholder')} autoFocus={false} />}
         {/* one grid for all three rows, so the fields below sit exactly under the two accounts */}
         <div className="form-grid form-grid-swap">
@@ -513,7 +511,7 @@ function TxForm({
             </Field>
           )}
         </div>
-      </form>
+      </ModalForm>
       {del && tx && <DeleteTx tx={tx} onClose={() => setDel(false)} onDeleted={close} />}
       {del && template && <DeleteTemplate template={template} onClose={() => setDel(false)} onDeleted={close} />}
     </Modal>

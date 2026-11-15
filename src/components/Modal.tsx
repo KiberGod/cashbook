@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type FormEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -16,7 +16,36 @@ interface ModalProps {
   headExtra?: ReactNode;
 }
 
+/**
+ * Each dialog's own form id: a dialog's "save" button (in its footer) submits its form by id, and
+ * dialogs of other tabs stay in the page (hidden), so a fixed id would reach another tab's form.
+ */
+const FormIdContext = createContext('');
+export const useModalFormId = () => useContext(FormIdContext);
+
+/** The dialog's form (its id is the dialog's own; see `ModalSubmit`). */
+export function ModalForm({ onSubmit, className = 'form', children }: { onSubmit: (e: FormEvent) => void; className?: string; children: ReactNode }) {
+  return (
+    <form id={useModalFormId()} className={className} onSubmit={onSubmit} noValidate>
+      {children}
+    </form>
+  );
+}
+
+/** A button in the dialog's footer that submits the dialog's own form. */
+export function ModalSubmit(props: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type' | 'form'>) {
+  return <button type="submit" form={useModalFormId()} {...props} />;
+}
+
+/** How many dialogs are shown (in the shown tab): the page under them does not scroll while any is. */
+let shownDialogs = 0;
+const lockScroll = (d: 1 | -1) => {
+  shownDialogs = Math.max(0, shownDialogs + d);
+  document.body.classList.toggle('no-scroll', shownDialogs > 0);
+};
+
 export function Modal({ title, onClose, children, footer, size = 'md', focusField = true, headExtra }: ModalProps) {
+  const formId = useId();
   const { t } = useI18n();
   const panel = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -42,28 +71,30 @@ export function Modal({ title, onClose, children, footer, size = 'md', focusFiel
       if (e.key === 'Escape' && all[all.length - 1] === panel.current) closeRef.current();
     };
     document.addEventListener('keydown', onKey);
-    document.body.classList.add('no-scroll');
+    lockScroll(1);
     return () => {
       document.removeEventListener('keydown', onKey);
-      // the page scrolls again once no other shown modal is left
-      if (document.querySelectorAll('.modal-backdrop:not([hidden]) .modal').length <= 1) document.body.classList.remove('no-scroll');
+      // the page scrolls again once no shown dialog is left (closed, or its tab hidden)
+      lockScroll(-1);
     };
   }, [active]);
 
   return createPortal(
-    <div className="modal-backdrop" hidden={!active} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
-        <div className="modal-head">
-          <h2>{title}</h2>
-          {headExtra && <div className="modal-head-extra">{headExtra}</div>}
-          <button type="button" className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
-            <Icon name="close" />
-          </button>
+    <FormIdContext.Provider value={formId}>
+      <div className="modal-backdrop" hidden={!active} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+        <div className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
+          <div className="modal-head">
+            <h2>{title}</h2>
+            {headExtra && <div className="modal-head-extra">{headExtra}</div>}
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t('common.close')}>
+              <Icon name="close" />
+            </button>
+          </div>
+          <div className="modal-body">{children}</div>
+          {footer && <div className="modal-foot">{footer}</div>}
         </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>,
+    </FormIdContext.Provider>,
     document.body,
   );
 }

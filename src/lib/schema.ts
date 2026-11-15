@@ -8,7 +8,7 @@ import {
 } from './types';
 
 /**
- * Spreadsheet layout (schema v9). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v10). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
@@ -26,7 +26,7 @@ import {
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
  * Balances and adjustments are JSON in plain cells too.
  */
-export const SCHEMA_VERSION = 9;
+export const SCHEMA_VERSION = 10;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 

@@ -5,6 +5,7 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { LIMITS, type FormId } from '../lib/types';
 import { AutoTextarea, Avatar, Field, Segmented } from './bits';
+import { ModalSubmit } from './Modal';
 
 /** Error message for a required, length-limited text (null = fine). */
 export function useTextRules() {
@@ -237,9 +238,9 @@ export function FormFooter({ onCancel, saveLabel, disabled }: { onCancel: () => 
       <button type="button" className="btn" onClick={onCancel}>
         {t('common.cancel')}
       </button>
-      <button type="submit" form="entity-form" className="btn btn-primary" disabled={disabled}>
+      <ModalSubmit className="btn btn-primary" disabled={disabled}>
         {saveLabel ?? t('common.save')}
-      </button>
+      </ModalSubmit>
     </>
   );
 }

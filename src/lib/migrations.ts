@@ -60,6 +60,8 @@ const STEPS: Record<number, Step> = {
   7: (t) => ({ ...t, debts: t.debts.map((x) => ({ ...x, adjustments: x.adjustments ?? [] })) }),
   // settings kept in the spreadsheet (a contact's graph view, ...): a new sheet, empty at first
   8: (t) => ({ ...t, settings: t.settings ?? [] }),
+  // the hryvnia got a built-in picture (a coin): given to a UAH asset that has no picture of its own
+  9: (t) => ({ ...t, assets: t.assets.map((a) => (String(a.code ?? '').toUpperCase() === 'UAH' && !String(a.image ?? '').trim() ? { ...a, image: 'builtin:uah' } : a)) }),
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

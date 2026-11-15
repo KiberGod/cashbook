@@ -1,6 +1,6 @@
 import { categoryIconSvg, parseCategoryIcon } from './categoryIcons';
 
-// Built-in pictures for the preset assets and services (and the category icons), referenced from the spreadsheet as
+// Built-in pictures for the preset assets (the hryvnia coin, crypto marks) and services (and the category icons), referenced from the spreadsheet as
 // 'builtin:<slug>' so they never depend on third-party links. Vector marks come from
 // simple-icons and cryptocurrency-icons (CC0); the other brands are 128px WebP files in
 // ./brands, named by slug and bundled by Vite.

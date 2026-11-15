@@ -8,11 +8,11 @@ import { PageHead } from '../components/Layout';
 import { useTab, useTabNav } from '../components/Tabs';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
 import { useViewState } from '../components/viewState';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { Icon, type UiIconName } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { formPalette, imagePalette, type CardPalette } from '../lib/cardPalette';
-import { money, parseAmount } from '../lib/format';
+import { formatRequisite, money, parseAmount } from '../lib/format';
 import { accountsInOrder, deleteAccount, moveAccount, saveAccount, servicesInOrder, adjustBalances } from '../lib/ops';
 import { byName, matchesAny } from '../lib/search';
 import { accountFlowOf, getIndex, round, templatesUsing } from '../lib/stats';
@@ -151,13 +151,12 @@ function AccountCardFace({ a, q = '', menu, inLink }: { a: Account; q?: string; 
   const ix = getIndex(data);
   const contact = a.contactId ? ix.contacts.get(a.contactId) : undefined;
   const service = a.serviceId ? ix.services.get(a.serviceId) : undefined;
-  // one under another, the two largest amounts at most
+  // every asset, the largest amounts first, side by side as far as they fit, then on the next line
   const balances = ix.account.get(a.id)!.balances;
   const top = a.assetIds
     .map((x) => ix.assets.get(x))
     .filter((x) => !!x)
-    .sort((x, y) => Math.abs(balances.get(y.id) ?? 0) - Math.abs(balances.get(x.id) ?? 0))
-    .slice(0, 2);
+    .sort((x, y) => Math.abs(balances.get(y.id) ?? 0) - Math.abs(balances.get(x.id) ?? 0));
   return (
     <>
       <div className="acc-card-top">
@@ -176,8 +175,14 @@ function AccountCardFace({ a, q = '', menu, inLink }: { a: Account; q?: string; 
         {menu}
       </div>
       <div className="acc-card-balances">
-        <AssetAmounts map={balances} assets={top} keepZero column />
+        <AssetAmounts map={balances} assets={top} keepZero />
       </div>
+      {/* the requisite, like the number on a bank card (whole on hover) */}
+      {a.requisite && a.form !== 'cash' && (
+        <div className={`acc-card-requisite ${formatRequisite(a.requisite).length > 22 ? 'long' : ''}`} title={a.requisite}>
+          <Highlight text={formatRequisite(a.requisite)} query={q} />
+        </div>
+      )}
       <div className="acc-card-bottom">
         {contact ? <ContactChip contact={contact} href={href.detail('contacts', contact.id)} inLink={inLink} /> : <span className="acc-card-nobody">{t('tx.noContact')}</span>}
         {contact?.isSelf && <span className="acc-card-own-badge">{t('accounts.yours')}</span>}
@@ -718,7 +723,7 @@ export function BalanceAdjustment({ account, onClose }: { account: Account; onCl
 
   return (
     <Modal title={t('accounts.adjustTitle', { name: account.name })} onClose={onClose} footer={<FormFooter onCancel={onClose} disabled={!changed} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <div className="warn-box">
           <Icon name="alert" />
           <div>
@@ -745,7 +750,7 @@ export function BalanceAdjustment({ account, onClose }: { account: Account; onCl
             </div>
           );
         })}
-      </form>
+      </ModalForm>
       {confirm && (
         <ConfirmDialog
           title={t('accounts.adjustConfirmTitle')}
@@ -873,7 +878,7 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
 
   return (
     <Modal title={account ? t('accounts.edit') : t('accounts.new')} onClose={onClose} size="lg" footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <div className="form-grid">
           <NameField value={name} onChange={setName} error={err('name')} />
           <Field label={t('accounts.contact')} group>
@@ -938,7 +943,7 @@ export function AccountEditor({ account, contactId, onClose }: { account: Accoun
           </div>
         )}
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

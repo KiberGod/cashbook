@@ -573,7 +573,8 @@ export function AccountsGraph({ accounts, stateKey, contactId }: { accounts: Acc
     );
     const contacts: Choice[] = contactKeys.map((c) => {
       const ct = ix.contacts.get(c);
-      return { value: c, label: contactName(c), icon: ct ? <Avatar image={ct.image} name={ct.name} size={20} /> : <Icon name="users" size={18} />, badge: c === ownContact ? t('graph.ownBadge') : undefined };
+      // the user's own contact says so; on another contact's graph, that contact is "this contact"
+      return { value: c, label: contactName(c), icon: ct ? <Avatar image={ct.image} name={ct.name} size={20} /> : <Icon name="users" size={18} />, badge: ct?.isSelf ? t('contacts.me') : c === ownContact ? t('graph.ownBadge') : undefined };
     });
     // accounts, under their contacts (in the same order)
     const accounts: Choice[] = [...candidates]

@@ -2,13 +2,13 @@ import type { I18n } from '../i18n';
 import type { AssetMap } from './stats';
 import type { Asset } from './types';
 
-/** "1 250.5 ₴" / "12.4 USDT" - symbol when the asset has one, otherwise its code. */
+/** "1 250.5 ₴" / "12.4 USDT" - symbol when the asset has one (a picture or not), otherwise its code. */
 export function money(i18n: Pick<I18n, 'num'>, n: number, asset: Asset | undefined, { sign = false } = {}): string {
   const digits = asset?.decimals ?? 2;
   const abs = i18n.num(Math.abs(n), digits);
   const s = n < 0 ? '−' : sign && n > 0 ? '+' : '';
   if (!asset) return `${s}${abs}`;
-  return asset.symbol && !asset.image ? `${s}${abs} ${asset.symbol}` : `${s}${abs} ${asset.code}`;
+  return asset.symbol ? `${s}${abs} ${asset.symbol}` : `${s}${abs} ${asset.code}`;
 }
 
 /** Non-zero entries of an asset map, ordered by the asset list order. */
@@ -40,3 +40,17 @@ export function parseAmount(s: string): number | null {
 
 /** Amount -> text for an input field, without grouping. */
 export const amountInput = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n));
+
+/**
+ * A requisite as it reads best: a card number in groups of four ("4149 4999 1234 5678"); an IBAN
+ * as it is, in one piece ("UA653220010000026006380055097"); a long one that is neither (a crypto
+ * address) shortened in the middle ("TQ5rGfP2…q9fXkL"); anything else as it is.
+ */
+export function formatRequisite(r: string): string {
+  const v = r.trim();
+  const compact = v.replace(/\s+/g, '');
+  if (/^\d{13,19}$/.test(compact)) return compact.replace(/(.{4})(?=.)/g, '$1 ');
+  if (/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(compact)) return compact;
+  if (compact.length > 30 && !/\s/.test(v)) return `${compact.slice(0, 8)}…${compact.slice(-6)}`;
+  return v;
+}

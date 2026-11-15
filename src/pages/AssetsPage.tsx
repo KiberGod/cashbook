@@ -1,10 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { AssetIcon, Avatar, CardMenu, EmptyState, Field, FormBadge, Highlight, LinkList, Money, MultiSelect, Pagination, SearchField, TotalsTable, usePaged } from '../components/bits';
 import { DescriptionField, FormChecks, FormFooter, NameField, useTextRules } from '../components/forms';
 import { PageHead } from '../components/Layout';
 import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteAsset, saveAsset } from '../lib/ops';
@@ -105,6 +105,24 @@ export function AssetDetail({ id }: { id: string }) {
   const asset = ix.assets.get(id);
   const [edit, setEdit] = useState(false);
   const [del, setDel] = useState(false);
+  // the debts' block goes to the column that is shorter without it (one column, a phone: at the end)
+  const leftPart = useRef<HTMLDivElement>(null);
+  const rightPart = useRef<HTMLDivElement>(null);
+  const [debtsLeft, setDebtsLeft] = useState(false);
+  useLayoutEffect(() => {
+    const l = leftPart.current;
+    const r = rightPart.current;
+    if (!l || !r) return;
+    const place = () => {
+      const oneColumn = Math.abs(l.getBoundingClientRect().left - r.getBoundingClientRect().left) < 2;
+      setDebtsLeft(!oneColumn && l.offsetHeight < r.offsetHeight);
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(l);
+    ro.observe(r);
+    return () => ro.disconnect();
+  }, [!!asset]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!asset) return <NotFound />;
   const u = ix.assetUsage.get(id)!;
   const isOwn = (a: { contactId: string }) => !!a.contactId && a.contactId === ix.self?.id;
@@ -118,6 +136,22 @@ export function AssetDetail({ id }: { id: string }) {
     if (isOwn(a)) own[a.form] = round((own[a.form] ?? 0) + balance(a.id));
   }
   const sum = (m: Record<string, number>) => round(Object.values(m).reduce((x, v) => x + v, 0));
+  const debtsPanel = (
+    <section className="panel">
+      <h2>
+        {t('nav.debts')} <span className="count">{u.debts.length}</span>
+      </h2>
+      {u.debts.length === 0 ? (
+        <p className="muted">{t('assets.noDebts')}</p>
+      ) : (
+        <div className="rows rows-compact">
+          {u.debts.map((d) => (
+            <DebtRow key={d.id} d={d} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
 
   return (
     <>
@@ -140,64 +174,56 @@ export function AssetDetail({ id }: { id: string }) {
       />
       <div className="detail-grid">
         <div className="detail-col">
-          <section className="panel">
-            <h2>{t('common.details')}</h2>
-            <dl className="kv">
-              <dt>{t('assets.code')}</dt>
-              <dd>{asset.code}</dd>
-              <dt>{t('assets.forms')}</dt>
-              <dd className="badges">
-                {asset.forms.length ? asset.forms.map((f) => <FormBadge key={f} form={f} />) : <span className="muted">—</span>}
-              </dd>
-              <dt>{t('assets.decimals')}</dt>
-              <dd>{num(asset.decimals)}</dd>
-              <dt>{t('common.description')}</dt>
-              <dd className="pre">{asset.description || <span className="muted">—</span>}</dd>
-            </dl>
-            <h2>{t('assets.balance')}</h2>
-            <TotalsTable
-              head={t('filter.form')}
-              empty={t('assets.noBalance')}
-              rows={FORMS.map((f) => ({ key: f, label: <FormBadge form={f} />, asset, total: total[f] ?? 0, own: own[f] ?? 0 }))}
-              footer={{ key: 'sum', label: t('totals.sum'), asset, total: sum(total), own: sum(own) }}
-            />
-          </section>
-          <RelatedTemplates kind="assets" id={id} />
+          <div className="detail-col" ref={leftPart}>
+            <section className="panel">
+              <h2>{t('common.details')}</h2>
+              <dl className="kv">
+                <dt>{t('assets.code')}</dt>
+                <dd>{asset.code}</dd>
+                <dt>{t('assets.forms')}</dt>
+                <dd className="badges">
+                  {asset.forms.length ? asset.forms.map((f) => <FormBadge key={f} form={f} />) : <span className="muted">—</span>}
+                </dd>
+                <dt>{t('assets.decimals')}</dt>
+                <dd>{num(asset.decimals)}</dd>
+                <dt>{t('common.description')}</dt>
+                <dd className="pre">{asset.description || <span className="muted">—</span>}</dd>
+              </dl>
+              <h2>{t('assets.balance')}</h2>
+              <TotalsTable
+                head={t('filter.form')}
+                empty={t('assets.noBalance')}
+                rows={FORMS.map((f) => ({ key: f, label: <FormBadge form={f} />, asset, total: total[f] ?? 0, own: own[f] ?? 0 }))}
+                footer={{ key: 'sum', label: t('totals.sum'), asset, total: sum(total), own: sum(own) }}
+              />
+            </section>
+            <RelatedTemplates kind="assets" id={id} />
+          </div>
+          {debtsLeft && debtsPanel}
         </div>
         <div className="detail-col">
-          <section className="panel">
-            <h2>
-              {t('nav.accounts')} <span className="count">{u.accounts.length}</span>
-            </h2>
-            <LinkList
-              empty={t('assets.noAccounts')}
-              items={u.accounts.map((a) => ({
-                href: href.detail('accounts', a.id),
-                label: a.name,
-                badge: isOwn(a) ? <span className="badge badge-accent">{t('accounts.yours')}</span> : undefined,
-                meta: <Money value={balance(a.id)} asset={asset} />,
-              }))}
-            />
-            {u.accounts.length > 0 && (
-              <a className="btn btn-sm" href={href.transactions({ asset: id })}>
-                {tn('counts.transactions', u.txs)}
-              </a>
-            )}
-          </section>
-          <section className="panel">
-            <h2>
-              {t('nav.debts')} <span className="count">{u.debts.length}</span>
-            </h2>
-            {u.debts.length === 0 ? (
-              <p className="muted">{t('assets.noDebts')}</p>
-            ) : (
-              <div className="rows rows-compact">
-                {u.debts.map((d) => (
-                  <DebtRow key={d.id} d={d} />
-                ))}
-              </div>
-            )}
-          </section>
+          <div className="detail-col" ref={rightPart}>
+            <section className="panel">
+              <h2>
+                {t('nav.accounts')} <span className="count">{u.accounts.length}</span>
+              </h2>
+              <LinkList
+                empty={t('assets.noAccounts')}
+                items={u.accounts.map((a) => ({
+                  href: href.detail('accounts', a.id),
+                  label: a.name,
+                  badge: isOwn(a) ? <span className="badge badge-accent">{t('accounts.yours')}</span> : undefined,
+                  meta: <Money value={balance(a.id)} asset={asset} />,
+                }))}
+              />
+              {u.accounts.length > 0 && (
+                <a className="btn btn-sm" href={href.transactions({ asset: id })}>
+                  {tn('counts.transactions', u.txs)}
+                </a>
+              )}
+            </section>
+          </div>
+          {!debtsLeft && debtsPanel}
         </div>
       </div>
       {edit && <AssetEditor asset={asset} onClose={() => setEdit(false)} />}
@@ -299,7 +325,8 @@ export function AssetEditor({ asset, onClose }: { asset: Asset | null; onClose: 
           {
             name: name.trim(),
             code: code.trim(),
-            symbol: iconKind === 'symbol' ? symbol.trim() : '',
+            // a picture keeps the symbol it had (the hryvnia: the coin, and "₴" in its amounts)
+            symbol: iconKind === 'symbol' ? symbol.trim() : (asset?.symbol ?? ''),
             image: iconKind === 'image' ? image.trim() : '',
             decimals: dec,
             forms: FORMS.filter((f) => forms.includes(f)),
@@ -314,7 +341,7 @@ export function AssetEditor({ asset, onClose }: { asset: Asset | null; onClose: 
 
   return (
     <Modal title={asset ? t('assets.edit') : t('assets.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <div className="form-grid">
           <NameField value={name} onChange={setName} error={err('name')} placeholder={t('assets.namePlaceholder')} />
           <Field label={t('assets.code')} error={err('code')} counter={[code.trim().length, LIMITS.code]}>
@@ -354,7 +381,7 @@ export function AssetEditor({ asset, onClose }: { asset: Asset | null; onClose: 
         </div>
         <FormChecks forms={FORMS} value={forms} onChange={setForms} label={t('assets.forms')} error={err('forms')} />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

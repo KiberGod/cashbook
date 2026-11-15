@@ -2223,7 +2223,8 @@ select,
    so the middle one lines up from row to row */
 .tx-rich {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) minmax(110px, auto) auto;
+  /* the parties (two badges side by side) get more of the line than the category and the note */
+  grid-template-columns: 38px minmax(0, 3fr) minmax(0, 2fr) minmax(110px, auto) auto;
 }
 
 .tx-rich > :nth-child(1) {
@@ -3213,19 +3214,41 @@ select,
     padding-left: 16px;
   }
 
-  /* on a phone the category and the note go under the parties */
+  /* on a phone: the picture, the date, the amount and the menu on top; the two parties' badges
+     under them across the whole row (side by side they need all of it); the category and the note last */
   .tx-rich {
     grid-template-columns: 38px minmax(0, 1fr) max-content auto;
-    align-items: start;
+    align-items: center;
+    row-gap: 8px;
+  }
+
+  .tx-rich .tx-main {
+    display: contents;
+  }
+
+  .tx-rich .tx-meta {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.8rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tx-rich .tx-amount {
     grid-column: 3;
+    grid-row: 1;
+  }
+
+  .tx-rich .tx-parties {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 
   .tx-rich .tx-center {
-    grid-column: 2 / -1;
-    grid-row: 2;
+    grid-column: 1 / -1;
+    grid-row: 3;
   }
 
   .tx-desc {
@@ -3783,7 +3806,7 @@ select,
 }
 
 .acc-card-balances .amounts {
-  gap: 4px;
+  gap: 4px 18px;
 }
 
 .acc-card-balances .money {
@@ -3988,6 +4011,20 @@ button.cal-yearbar {
 
 .cal-yearbar.chosen {
   outline-offset: 3px;
+}
+
+/* being dragged over: what the range will take in */
+.cal-cell.sel,
+.cal-month.sel,
+.cal-yearbar.sel {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cal-cell.pickable,
+.cal-month.pickable,
+.cal-yearbar.pickable {
+  user-select: none;
 }
 
 /* outside the date filter's range: still there to be clicked, but stepped back */
@@ -7122,4 +7159,186 @@ body:has(.modal-backdrop:not([hidden])) .topbar::after {
 .ag-settings .switch {
   align-self: flex-start;
   color: var(--text);
+}
+
+/* the requisite on an account card, like the number on a bank card */
+.acc-card-requisite {
+  overflow: hidden;
+  color: rgb(255 255 255 / 0.86);
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.18);
+}
+
+/* a long one in one piece (an IBAN): tighter, to fit the card's width */
+.acc-card-requisite.long {
+  font-size: 0.84rem;
+  letter-spacing: 0.01em;
+}
+
+.acc-card-requisite mark {
+  color: inherit;
+}
+
+
+/* ---- the sides of a transaction: two split badges on one line ---- */
+.tx-parties {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+/* both sides: each badge gets at most half the line, so they always stand side by side */
+.tx-parties.both > .party {
+  max-width: calc(50% - 12px);
+}
+
+.party {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  height: 26px;
+}
+
+/* the two halves of one pill: rounded outside, nearly square where they meet, a gap between */
+.party-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.party-contact {
+  /* it keeps its size (a long name is cut inside it, at half the badge): the account gives way first */
+  flex: 0 0 auto;
+  max-width: 50%;
+  padding-left: 4px;
+  border-radius: 999px 5px 5px 999px;
+}
+
+.party-account {
+  flex: 0 1 auto;
+  border-radius: 5px 999px 999px 5px;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+}
+
+/* no contact: the account alone, a whole pill */
+.party-single .party-account {
+  border-radius: 999px;
+}
+
+.party-part .avatar {
+  flex-shrink: 0;
+}
+
+.party-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.party-part:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--text);
+}
+
+/* the user's own account: tinted, both halves */
+.party-own .party-part {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.party-own .party-part:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+}
+
+/* the transaction at a glance (a dialog over the list): the page's two panels, one under the other,
+   without their own frames; the button to the page on the left of the footer */
+.txd-preview .debt-layout {
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+}
+
+.txd-preview .panel {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+
+.txd-preview .panel + .panel {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.modal-foot-gap {
+  flex: 1;
+}
+
+/* the page's own heading is in the dialog's head already */
+.txd-preview .debt-summary .panel-title {
+  display: none;
+}
+
+/* the amount and the fee on one line, the category and the date on the next (no fee: its place stays empty) */
+.txd-preview .debt-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas:
+    'amount fee'
+    'category date';
+  gap: 14px 20px;
+  align-items: start;
+}
+
+.txd-preview .txd-c-amount {
+  grid-area: amount;
+}
+
+.txd-preview .txd-c-fee {
+  grid-area: fee;
+}
+
+.txd-preview .txd-c-category {
+  grid-area: category;
+}
+
+.txd-preview .txd-c-date {
+  grid-area: date;
+}
+
+/* a footer with a gap (a button on the left, others on the right) may wrap; on a phone the left
+   one takes a line of its own */
+.modal-foot:has(.modal-foot-gap) {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .modal-foot-gap {
+    flex-basis: 100%;
+    height: 0;
+  }
+
+  .modal-foot:has(.modal-foot-gap) > .btn:first-child {
+    flex: 1;
+    justify-content: center;
+  }
 }

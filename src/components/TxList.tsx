@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useCallback, useState, type SyntheticEvent } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteTransaction } from '../lib/ops';
 import { getIndex, type Index } from '../lib/stats';
 import type { Account, Transaction } from '../lib/types';
 import { href } from '../router';
-import { openLink } from '../store/tabs';
+import { openLink, openTab } from '../store/tabs';
 import { mutate, useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
-import { AssetIcon, Avatar, CardMenu, ContactChip, EmptyState, Highlight, Money, Pagination, usePaged } from './bits';
+import { AccountIcon, AssetIcon, Avatar, CardMenu, EmptyState, Highlight, Money, Pagination, usePaged } from './bits';
 import { ConfirmDialog } from './Modal';
+import { TxPreview } from '../pages/TransactionDetail';
 
 export type Direction = 'in' | 'out' | 'internal' | 'other';
 
@@ -24,31 +25,56 @@ export function directionOf(t: Transaction, side: Set<string> | null): Direction
   return 'other';
 }
 
-function AccountRef({ ix, account, q }: { ix: Index; account: Account | undefined; q: string }) {
-  const { t } = useI18n();
-  if (!account) return <span className="muted">{t('tx.external')}</span>;
+/**
+ * One side of a transaction as a split badge: whose (the contact's picture and name) | which account
+ * (its picture and name), two halves of one pill with a gap between them, each a link of its own: the
+ * contact opens in its own tab, the account in this one. No contact: the account alone. The user's
+ * own account is tinted. No account at all (a side not kept): no badge.
+ */
+function PartyBadge({ ix, account, q }: { ix: Index; account: Account | undefined; q: string }) {
+  if (!account) return null;
   const contact = account.contactId ? ix.contacts.get(account.contactId) : undefined;
+  const service = account.serviceId ? ix.services.get(account.serviceId) : undefined;
+  const contactTo = contact ? href.detail('contacts', contact.id) : '';
+  const accountTo = href.detail('accounts', account.id);
+  // the row is a link itself: these go by script and keep the row's click away
+  const go = (to: string, ownTab: boolean) => (e: SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (ownTab) openTab(to);
+    else openLink(to);
+  };
   return (
-    <span className="acc-ref">
-      <a href={href.detail('accounts', account.id)} onClick={(e) => e.stopPropagation()}>
-        <Highlight text={account.name} query={q} />
-      </a>
+    <span className={`party ${contact?.isSelf ? 'party-own' : ''} ${contact ? '' : 'party-single'}`}>
       {contact && (
-        <a className="muted acc-contact" href={href.detail('contacts', contact.id)} onClick={(e) => e.stopPropagation()}>
-          <Highlight text={contact.name} query={q} />
-        </a>
+        <span className="party-part party-contact" role="link" tabIndex={0} data-href={contactTo} data-open="tab" title={contact.name} onClick={go(contactTo, true)} onKeyDown={(e) => e.key === 'Enter' && go(contactTo, true)(e)}>
+          <Avatar image={contact.image} name={contact.name} size={18} />
+          <span className="party-name">
+            <Highlight text={contact.name} query={q} />
+          </span>
+        </span>
       )}
+      <span className="party-part party-account" role="link" tabIndex={0} data-href={accountTo} title={account.name} onClick={go(accountTo, false)} onKeyDown={(e) => e.key === 'Enter' && go(accountTo, false)(e)}>
+        <AccountIcon account={account} service={service} size={16} />
+        <span className="party-name">
+          <Highlight text={account.name} query={q} />
+        </span>
+      </span>
     </span>
   );
 }
 
-/** One side of a transaction as a contact chip (the row is clickable itself, so the chip navigates by script). */
-function PartyChip({ ix, account, q }: { ix: Index; account: Account | undefined; q: string }) {
-  const { t } = useI18n();
-  if (!account) return <span className="muted">{t('tx.external')}</span>;
-  const contact = account.contactId ? ix.contacts.get(account.contactId) : undefined;
-  if (!contact) return <span className="muted">{t('tx.noContact')}</span>;
-  return <ContactChip contact={contact} query={q} href={href.detail('contacts', contact.id)} inLink />;
+/** Who to whom, on one line: the sender's badge, an arrow, the receiver's (a side not kept has none). */
+function Parties({ ix, tx, q }: { ix: Index; tx: Transaction; q: string }) {
+  const from = ix.accounts.get(tx.fromId);
+  const to = ix.accounts.get(tx.toId);
+  return (
+    <div className={`tx-parties ${from && to ? 'both' : ''}`}>
+      <PartyBadge ix={ix} account={from} q={q} />
+      <Icon name="chevronRight" size={14} />
+      <PartyBadge ix={ix} account={to} q={q} />
+    </div>
+  );
 }
 
 /**
@@ -61,6 +87,8 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
   const data = useStore((s) => s.data);
   const ix = getIndex(data);
   const [del, setDel] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const closePreview = useCallback(() => setPreview(false), []);
   const asset = ix.assets.get(tx.assetId);
   const feeAsset = ix.assets.get(tx.feeAssetId);
   const category = tx.categoryId ? ix.categories.get(tx.categoryId) : undefined;
@@ -96,8 +124,14 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
 
   return (
     <div className={`tx-row tx-${dir} ${rich ? 'tx-rich' : ''}`} data-href={href.transaction(tx.id)}
-      // only a click on the row itself: one in its dialogs (React passes their events up through the portal) is not
-      onClick={(e) => e.currentTarget.contains(e.target as Node) && openLink(href.transaction(tx.id))} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && openLink(href.transaction(tx.id))}>
+      // a click: the transaction at a glance, over the list; Ctrl / ⌘ / Shift: its page in a new tab (the
+      // right-click menu and the middle button open its page too). Only a click on the row itself: one in its
+      // dialogs (React passes their events up through the portal) is not
+      onClick={(e) => {
+        if (!e.currentTarget.contains(e.target as Node)) return;
+        if (e.ctrlKey || e.metaKey || e.shiftKey) openTab(href.transaction(tx.id), { background: true, explicit: true });
+        else setPreview(true);
+      }} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && e.target === e.currentTarget && setPreview(true)}>
       {picture ? (
         <span className="tx-pic" title={t(`dir.${dir}`)}>
           <span className="tx-pic-img">
@@ -113,19 +147,7 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
         </span>
       )}
       <div className="tx-main">
-        {rich ? (
-          <div className="tx-parties">
-            <PartyChip ix={ix} account={ix.accounts.get(tx.fromId)} q={q} />
-            <Icon name="chevronRight" size={14} />
-            <PartyChip ix={ix} account={ix.accounts.get(tx.toId)} q={q} />
-          </div>
-        ) : (
-          <div className="tx-parties">
-            <AccountRef ix={ix} account={ix.accounts.get(tx.fromId)} q={q} />
-            <Icon name="chevronRight" size={14} />
-            <AccountRef ix={ix} account={ix.accounts.get(tx.toId)} q={q} />
-          </div>
-        )}
+        <Parties ix={ix} tx={tx} q={q} />
         <div className="tx-meta">
           <span className="muted">{i18n.dateTime(tx.date)}</span>
           {!rich && categoryChip}
@@ -171,6 +193,7 @@ export function TxRow({ t: tx, side, q = '', rich = false }: { t: Transaction; s
         ]}
       />
       {del && <DeleteTx tx={tx} onClose={() => setDel(false)} />}
+      {preview && <TxPreview id={tx.id} onClose={closePreview} />}
     </div>
   );
 }

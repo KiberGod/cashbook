@@ -12,7 +12,7 @@ type L = Record<Lang, string>;
 const pick = (l: L, lang: Lang) => l[lang];
 
 const ASSETS: { name: L; code: string; symbol: string; image: string; decimals: number; forms: FormId[] }[] = [
-  { name: { uk: 'Гривня', en: 'Hryvnia', ru: 'Гривна' }, code: 'UAH', symbol: '₴', image: '', decimals: 2, forms: ['cash', 'bank'] },
+  { name: { uk: 'Гривня', en: 'Hryvnia', ru: 'Гривна' }, code: 'UAH', symbol: '₴', image: 'builtin:uah', decimals: 2, forms: ['cash', 'bank'] },
   { name: { uk: 'Долар США', en: 'US dollar', ru: 'Доллар США' }, code: 'USD', symbol: '$', image: '', decimals: 2, forms: ['cash', 'bank'] },
   { name: { uk: 'Tether', en: 'Tether', ru: 'Tether' }, code: 'USDT', symbol: '', image: 'builtin:usdt', decimals: 2, forms: ['crypto'] },
   { name: { uk: 'Tron', en: 'Tron', ru: 'Tron' }, code: 'TRX', symbol: '', image: 'builtin:trx', decimals: 6, forms: ['crypto'] },

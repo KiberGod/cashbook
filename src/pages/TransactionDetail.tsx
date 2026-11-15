@@ -6,9 +6,11 @@ import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { ownAccountIds } from '../lib/analytics';
 import { debtEffect, getIndex, type Index } from '../lib/stats';
-import type { Account } from '../lib/types';
+import type { Account, Transaction } from '../lib/types';
 import { href } from '../router';
+import { Modal } from '../components/Modal';
 import { useTabNav } from '../components/Tabs';
+import { openLink } from '../store/tabs';
 import { useStore } from '../store/store';
 import { openTxForm } from '../store/ui';
 import { NotFound } from './common';
@@ -42,13 +44,10 @@ function PartyContact({ ix, account }: { ix: Index; account: Account | undefined
 
 /** A transaction's own page: what moved where and why, with edit and delete. */
 export function TransactionDetail({ id }: { id: string }) {
-  const i18n = useI18n();
-  const { t } = i18n;
+  const { t } = useI18n();
   const data = useStore((s) => s.data);
-  const ix = getIndex(data);
-  const tx = ix.transactions.get(id);
+  const tx = getIndex(data).transactions.get(id);
   const [del, setDel] = useState(false);
-  const own = useMemo(() => ownAccountIds(ix), [ix]);
 
   // deleted while open (e.g. from its editor, or in another tab): this tab leaves the page instead of showing "not found"
   const nav = useTabNav();
@@ -58,20 +57,6 @@ export function TransactionDetail({ id }: { id: string }) {
     else if (seen.current) nav.back(href.transactions());
   }, [tx]);
   if (!tx) return <NotFound />;
-
-  const asset = ix.assets.get(tx.assetId);
-  const feeAsset = ix.assets.get(tx.feeAssetId);
-  const from = ix.accounts.get(tx.fromId);
-  const to = ix.accounts.get(tx.toId);
-  const category = tx.categoryId ? ix.categories.get(tx.categoryId) : undefined;
-  const parent = category?.parentId ? ix.categories.get(category.parentId) : undefined;
-  const debt = tx.debtId ? ix.debts.get(tx.debtId) : undefined;
-  const effect = debt ? debtEffect(debt, tx, ix.accounts) : 0;
-  const dir = directionOf(tx, own);
-  const value = dir === 'out' ? -tx.amount : tx.amount;
-  const dirIcon = dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap';
-  // a record written by hand into the sheet may lack its stamps
-  const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? '—' : i18n.dateTime(iso));
 
   return (
     <>
@@ -91,6 +76,93 @@ export function TransactionDetail({ id }: { id: string }) {
           </>
         }
       />
+      <TransactionView tx={tx} />
+      {/* once deleted, the effect above leaves the page */}
+      {del && <DeleteTx tx={tx} onClose={() => setDel(false)} />}
+    </>
+  );
+}
+
+/**
+ * A transaction at a glance, over the list it was clicked in (the page stays where it is): what
+ * the page shows, with a button to that page, edit and delete.
+ */
+export function TxPreview({ id, onClose }: { id: string; onClose: () => void }) {
+  const { t } = useI18n();
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const tx = ix.transactions.get(id);
+  const [del, setDel] = useState(false);
+  const own = useMemo(() => ownAccountIds(ix), [ix]);
+  // gone (deleted here, from its editor or elsewhere): nothing to show
+  useEffect(() => {
+    if (!tx) onClose();
+  }, [tx, onClose]);
+  if (!tx) return null;
+  const dir = directionOf(tx, own);
+  return (
+    <Modal
+      title={t('tx.one')}
+      // which way, seen from the user's accounts, next to the title (the page shows it on its first panel)
+      headExtra={
+        <span className={`badge txd-dir dir-${dir}`}>
+          <Icon name={dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap'} size={12} />
+          {t(`tx.kind.${dir}`)}
+        </span>
+      }
+      size="lg"
+      focusField={false}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn" onClick={() => openLink(href.transaction(id))}>
+            <Icon name="external" size={17} />
+            {t('tx.openPage')}
+          </button>
+          <span className="modal-foot-gap" />
+          <button type="button" className="btn" onClick={() => openTxForm({ id })}>
+            <Icon name="edit" size={17} />
+            {t('common.edit')}
+          </button>
+          <button type="button" className="btn btn-danger-ghost" onClick={() => setDel(true)}>
+            <Icon name="trash" size={17} />
+            {t('common.delete')}
+          </button>
+        </>
+      }
+    >
+      <div className="txd-preview">
+        <TransactionView tx={tx} />
+      </div>
+      {del && <DeleteTx tx={tx} onClose={() => setDel(false)} onDeleted={onClose} />}
+    </Modal>
+  );
+}
+
+/** What a transaction is: the amount and which way (seen from the user's accounts), who to whom, the record. */
+function TransactionView({ tx }: { tx: Transaction }) {
+  const i18n = useI18n();
+  const { t } = i18n;
+  const data = useStore((s) => s.data);
+  const ix = getIndex(data);
+  const own = useMemo(() => ownAccountIds(ix), [ix]);
+
+  const asset = ix.assets.get(tx.assetId);
+  const feeAsset = ix.assets.get(tx.feeAssetId);
+  const from = ix.accounts.get(tx.fromId);
+  const to = ix.accounts.get(tx.toId);
+  const category = tx.categoryId ? ix.categories.get(tx.categoryId) : undefined;
+  const parent = category?.parentId ? ix.categories.get(category.parentId) : undefined;
+  const debt = tx.debtId ? ix.debts.get(tx.debtId) : undefined;
+  const effect = debt ? debtEffect(debt, tx, ix.accounts) : 0;
+  const dir = directionOf(tx, own);
+  const value = dir === 'out' ? -tx.amount : tx.amount;
+  const dirIcon = dir === 'in' ? 'arrowIn' : dir === 'out' ? 'arrowOut' : 'swap';
+  // a record written by hand into the sheet may lack its stamps
+  const when = (iso: string) => (Number.isNaN(Date.parse(iso)) ? '—' : i18n.dateTime(iso));
+
+  return (
+    <>
       {/* each panel as tall as its content */}
       <div className="debt-layout txd-layout">
         {/* how much and which way, seen from the user's own accounts */}
@@ -102,7 +174,7 @@ export function TransactionDetail({ id }: { id: string }) {
               {t(`tx.kind.${dir}`)}
             </span>
           </h2>
-          <div className="cell">
+          <div className="cell txd-c-amount">
             <span className="cell-label">{t('tx.amount')}</span>
             <span className="txd-amount">
               <AssetIcon asset={asset} size={22} />
@@ -110,7 +182,7 @@ export function TransactionDetail({ id }: { id: string }) {
             </span>
           </div>
           {tx.fee ? (
-            <div className="cell">
+            <div className="cell txd-c-fee">
               <span className="cell-label">{t('tx.fee')}</span>
               <span className="amount-chip">
                 <AssetIcon asset={feeAsset} size={16} />
@@ -118,7 +190,7 @@ export function TransactionDetail({ id }: { id: string }) {
               </span>
             </div>
           ) : null}
-          <div className="cell">
+          <div className="cell txd-c-category">
             <span className="cell-label">{t('tx.category')}</span>
             {category ? (
               <a className="chip" href={href.detail('categories', category.id)}>
@@ -130,7 +202,7 @@ export function TransactionDetail({ id }: { id: string }) {
               <span className="muted">—</span>
             )}
           </div>
-          <div className="cell">
+          <div className="cell txd-c-date">
             <span className="cell-label">{t('tx.date')}</span>
             <span>{i18n.dateTime(tx.date)}</span>
           </div>
@@ -187,8 +259,6 @@ export function TransactionDetail({ id }: { id: string }) {
           </div>
         </section>
       </div>
-      {/* once deleted, the effect above leaves the page */}
-      {del && <DeleteTx tx={tx} onClose={() => setDel(false)} />}
     </>
   );
 }

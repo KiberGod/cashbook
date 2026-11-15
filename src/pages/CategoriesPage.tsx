@@ -8,7 +8,7 @@ import { PageHead } from '../components/Layout';
 import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { categoryTree, deleteCategory, moveCategory, saveCategory } from '../lib/ops';
@@ -437,14 +437,14 @@ export function CategoryEditor({ category, parentId, onClose }: { category: Cate
 
   return (
     <Modal title={category ? t('categories.edit') : t('categories.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <NameField value={name} onChange={setName} error={err('name')} />
         <ImageField value={image} onChange={setImage} error={err('image')} name={name} icons />
         <Field label={t('categories.parent')} hint={hasChildren ? t('categories.parentLocked') : undefined}>
           <Picker value={hasChildren ? '' : parent} onChange={setParent} options={parentOptions} disabled={hasChildren} ariaLabel={t('categories.parent')} />
         </Field>
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

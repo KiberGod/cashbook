@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { toLocalInput } from '../lib/format';
@@ -27,7 +27,8 @@ const yearRange = (y: number) => rangeOf(new Date(y, 0, 1), new Date(y, 11, 31, 
 /**
  * Activity calendar: how many transactions happened per day (a year as a week grid),
  * per month or per year. With `pick`, a day, month or year can be clicked to choose it as
- * a time range (clicking the chosen one again clears it); the chosen one is outlined.
+ * a time range (clicking the chosen one again clears it); the chosen one is outlined. With the
+ * mouse, a press dragged over other cells chooses all the time between them.
  * The other way round, any range set in the date filter shows on it: what lies outside is
  * dimmed, and it turns to the year the range starts in.
  */
@@ -87,6 +88,53 @@ export function ActivityCalendar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rangeYear]);
   const choose = (r: CalendarRange) => pick?.onChange(chosen(r) ? null : r);
+
+  // ---- a range by dragging (the mouse): press on a day, month or year, move over others to take
+  // in everything between them in time, let go to set it; a press with no move is a click ----
+  const [drag, setDrag] = useState<{ start: CalendarRange; cur: CalendarRange } | null>(null);
+  const dragRef = useRef(drag);
+  dragRef.current = drag;
+  // a mouse press is handled here; the click that follows it is not handled again
+  const byMouse = useRef(false);
+  const span = (a: CalendarRange, b: CalendarRange): CalendarRange => ({ from: a.from < b.from ? a.from : b.from, to: a.to > b.to ? a.to : b.to });
+  const sel = drag ? span(drag.start, drag.cur) : null;
+  const inSel = (r: CalendarRange) => !!sel && r.from >= sel.from && r.to <= sel.to;
+  useEffect(() => {
+    if (!drag) return;
+    const up = () => {
+      const d = dragRef.current;
+      setDrag(null);
+      if (!d) return;
+      // the same cell: a click (choose it, or clear it when it is the chosen one); else the whole span
+      if (d.start.from === d.cur.from) choose(d.start);
+      else pick?.onChange(span(d.start, d.cur));
+    };
+    const cancel = () => setDrag(null);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', cancel);
+    return () => {
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!drag]);
+  /** What a pickable cell needs: a click (touch, keyboard), and with the mouse the dragging. */
+  const pickProps = (r: CalendarRange) =>
+    pick
+      ? {
+          onPointerDown: (e: ReactPointerEvent) => {
+            byMouse.current = e.pointerType === 'mouse';
+            if (!byMouse.current || e.button !== 0) return;
+            e.preventDefault();
+            setDrag({ start: r, cur: r });
+          },
+          onPointerEnter: () => dragRef.current && setDrag({ ...dragRef.current, cur: r }),
+          onClick: () => {
+            if (byMouse.current) return void (byMouse.current = false);
+            choose(r);
+          },
+        }
+      : {};
 
   const header = (
     <div className="cal-head">
@@ -155,9 +203,9 @@ export function ActivityCalendar({
                   return (
                     <span
                       key={d.getTime()}
-                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'} ${pick && inYear ? 'pickable' : ''} ${inYear && chosen(r) ? 'chosen' : ''} ${inYear && outside(r) ? 'off' : ''}`}
+                      className={`cal-cell l${level(n, max)} ${inYear ? '' : 'out'} ${pick && inYear ? 'pickable' : ''} ${inYear && chosen(r) ? 'chosen' : ''} ${inYear && outside(r) && !sel ? 'off' : ''} ${inYear && inSel(r) ? 'sel' : ''}`}
                       title={inYear ? `${date(d.getTime())}: ${tn('counts.transactions', n)}` : undefined}
-                      onClick={pick && inYear ? () => choose(r) : undefined}
+                      {...(inYear ? pickProps(r) : {})}
                     />
                   );
                 })}
@@ -188,10 +236,10 @@ export function ActivityCalendar({
               <Tag
                 key={m}
                 type={pick ? 'button' : undefined}
-                className={`cal-month l${level(n, max)} ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) ? 'off' : ''}`}
+                className={`cal-month l${level(n, max)} ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) && !sel ? 'off' : ''} ${inSel(r) ? 'sel' : ''}`}
                 title={tn('counts.transactions', n)}
                 aria-pressed={pick ? chosen(r) : undefined}
-                onClick={pick ? () => choose(r) : undefined}
+                {...pickProps(r)}
               >
                 <span>{name}</span>
                 <strong>{n}</strong>
@@ -220,9 +268,9 @@ export function ActivityCalendar({
             <Tag
               key={y}
               type={pick ? 'button' : undefined}
-              className={`cal-yearbar ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) ? 'off' : ''}`}
+              className={`cal-yearbar ${pick ? 'pickable' : ''} ${chosen(r) ? 'chosen' : ''} ${outside(r) && !sel ? 'off' : ''} ${inSel(r) ? 'sel' : ''}`}
               aria-pressed={pick ? chosen(r) : undefined}
-              onClick={pick ? () => choose(r) : undefined}
+              {...pickProps(r)}
             >
               <span className="cal-yearbar-label">{y}</span>
               <span className="cal-yearbar-track">

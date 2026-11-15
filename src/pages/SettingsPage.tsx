@@ -2,7 +2,7 @@ import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
 import { Segmented } from '../components/bits';
 import { KeyInput, NewKeyFields, useNewKey } from '../components/KeyFields';
 import { PageHead, SheetsMark } from '../components/Layout';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm, ModalSubmit } from '../components/Modal';
 import { BrandIcon, Icon } from '../icons/ui';
 import { LANGUAGES, useI18n, type Lang } from '../i18n';
 import { toAppError, type AppError } from '../lib/errors';
@@ -107,14 +107,14 @@ function EncryptionDialog({ encrypted, onClose }: { encrypted: boolean; onClose:
           <button type="button" className="btn" onClick={onClose} disabled={busy}>
             {t('common.cancel')}
           </button>
-          <button type="submit" form="enc-form" className={encrypted ? 'btn btn-danger' : 'btn btn-primary'} disabled={!canSubmit}>
+          <ModalSubmit className={encrypted ? 'btn btn-danger' : 'btn btn-primary'} disabled={!canSubmit}>
             {busy ? <span className="spinner" /> : <Icon name={encrypted ? 'unlock' : 'lock'} size={18} />}
             {busy ? t('enc.working') : t(encrypted ? 'enc.disableButton' : 'enc.enableButton')}
-          </button>
+          </ModalSubmit>
         </>
       }
     >
-      <form id="enc-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         {encrypted ? (
           <>
             <div className="warn-box">
@@ -138,7 +138,7 @@ function EncryptionDialog({ encrypted, onClose }: { encrypted: boolean; onClose:
         )}
         {busy && <p className="field-hint">{t('enc.keepOpen')}</p>}
         {error && <ErrorDetails error={error} />}
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

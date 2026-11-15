@@ -8,7 +8,7 @@ import { PageHead } from '../components/Layout';
 import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
 import { dragHandle, swallowNextClick, useDragSensors } from '../components/dnd';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
 import { deleteService, moveService, saveService, servicesInOrder } from '../lib/ops';
@@ -304,7 +304,7 @@ export function ServiceEditor({ service, onClose }: { service: Service | null; o
 
   return (
     <Modal title={service ? t('services.edit') : t('services.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <NameField value={name} onChange={setName} error={err('name')} placeholder="Monobank, Binance…" />
         <ImageField value={image} onChange={setImage} error={err('image')} name={name} />
         <FormChecks
@@ -316,7 +316,7 @@ export function ServiceEditor({ service, onClose }: { service: Service | null; o
           hint={unlinked ? t('services.formUnlink', { accounts: tn('counts.accounts', unlinked) }) : undefined}
         />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

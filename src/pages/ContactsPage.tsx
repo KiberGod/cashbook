@@ -4,7 +4,7 @@ import { DescriptionField, FormFooter, ImageField, NameField, useTextRules } fro
 import { PageHead } from '../components/Layout';
 import { useTab, useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
 import { AccountsHistory } from '../components/BalanceHistory';
 import { AccountsGraph } from '../components/AccountsGraph';
@@ -370,12 +370,12 @@ export function ContactEditor({ contact, onClose }: { contact: Contact | null; o
 
   return (
     <Modal title={contact ? t('contacts.edit') : t('contacts.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         {contact?.isSelf && <p className="field-hint">{t('contacts.selfHint')}</p>}
         <NameField value={name} onChange={setName} error={err('name')} />
         <ImageField value={image} onChange={setImage} error={err('image')} name={name} />
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }

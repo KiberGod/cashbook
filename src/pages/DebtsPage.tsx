@@ -4,7 +4,7 @@ import { DescriptionField, FormFooter, NameField, useTextRules } from '../compon
 import { PageHead } from '../components/Layout';
 import { useTabNav } from '../components/Tabs';
 import { useViewState } from '../components/viewState';
-import { ConfirmDialog, Modal } from '../components/Modal';
+import { ConfirmDialog, Modal, ModalForm } from '../components/Modal';
 import { TxBrowser } from '../components/TxBrowser';
 import { Icon } from '../icons/ui';
 import { useI18n } from '../i18n';
@@ -370,7 +370,7 @@ export function DebtAdjustment({ debt, onClose }: { debt: Debt; onClose: () => v
 
   return (
     <Modal title={t('debts.adjustTitle', { name: debt.name })} onClose={onClose} footer={<FormFooter onCancel={onClose} disabled={diff === 0} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <div className="warn-box">
           <Icon name="alert" />
           <div>
@@ -391,7 +391,7 @@ export function DebtAdjustment({ debt, onClose }: { debt: Debt; onClose: () => v
             </span>
           </div>
         </div>
-      </form>
+      </ModalForm>
       {confirm && (
         <ConfirmDialog
           title={t('debts.adjustConfirmTitle')}
@@ -498,7 +498,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
 
   return (
     <Modal title={debt ? t('debts.edit') : t('debts.new')} onClose={onClose} footer={<FormFooter onCancel={onClose} />}>
-      <form id="entity-form" className="form" onSubmit={submit} noValidate>
+      <ModalForm onSubmit={submit}>
         <NameField value={name} onChange={setName} error={err('name')} placeholder={t('debts.namePlaceholder')} />
         {/* one grid for both rows, so the asset and the amount sit exactly under the parties */}
         <div className="form-grid form-grid-swap">
@@ -530,7 +530,7 @@ export function DebtEditor({ debt, contactId, onClose }: { debt: Debt | null; co
           </Field>
         </div>
         <DescriptionField value={description} onChange={setDescription} error={err('description')} />
-      </form>
+      </ModalForm>
     </Modal>
   );
 }
