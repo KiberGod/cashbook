@@ -281,7 +281,7 @@ export function ContactDetail({ id }: { id: string }) {
           {accounts.length === 0 ? (
             <EmptyState icon="wallet" text={t('contacts.noAccounts')} />
           ) : (
-            <AccountsGraph accounts={accounts} stateKey={`contact.${id}`} />
+            <AccountsGraph accounts={accounts} stateKey={`contact.${id}`} contactId={id} />
           )}
         </section>
       )}

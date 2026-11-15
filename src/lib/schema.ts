@@ -8,7 +8,7 @@ import {
 } from './types';
 
 /**
- * Spreadsheet layout (schema v8). Row 1 of every sheet is a header.
+ * Spreadsheet layout (schema v9). Row 1 of every sheet is a header.
  *
  *   Meta          key | value    (app, schema, encryption parameters, ...)
  *   Assets        id | name | description | code | symbol | image | decimals | forms | createdAt | updatedAt
@@ -19,13 +19,14 @@ import {
  *   Transactions  id | date | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | createdAt | updatedAt
  *   Debts         id | name | description | assetId | debtorId | creditorId | amount | adjustments | createdAt | updatedAt
  *   Templates     id | name | fromId | toId | assetId | amount | fee | feeAssetId | categoryId | debtId | description | order | createdAt | updatedAt
+ *   Settings      id | value | createdAt | updatedAt     (value: JSON, e.g. a contact's graph view)
  *
  * In an encrypted spreadsheet every data sheet has a single column "data":
  * each row is the JSON record of one entity, encrypted (see lib/crypto.ts).
  * Lists are comma-separated in plain sheets, JSON arrays inside encrypted rows.
  * Balances and adjustments are JSON in plain cells too.
  */
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 9;
 export const APP_NAME = 'Cashbook';
 export const ENCRYPTED_HEADER = 'data';
 
@@ -39,10 +40,11 @@ export const SHEETS: Record<EntityKind | 'meta', string> = {
   transactions: 'Transactions',
   debts: 'Debts',
   templates: 'Templates',
+  settings: 'Settings',
 };
 
 /** Sheets added by a later schema: a spreadsheet older than that may lack them, the migration creates them. */
-export const SHEET_SINCE: Partial<Record<EntityKind, number>> = { templates: 5 };
+export const SHEET_SINCE: Partial<Record<EntityKind, number>> = { templates: 5, settings: 9 };
 
 type ColType = 'text' | 'number' | 'numberOrNull' | 'int' | 'bool' | 'list' | 'balances' | 'adjustments';
 type Spec = [name: string, type: ColType][];
@@ -143,6 +145,11 @@ export const COLUMNS: Record<EntityKind, Spec> = {
     ['debtId', 'text'],
     ['description', 'text'],
     ['order', 'int'],
+    ...STAMPS,
+  ],
+  settings: [
+    ['id', 'text'],
+    ['value', 'text'],
     ...STAMPS,
   ],
 };
@@ -412,6 +419,15 @@ export function validateData(data: Data, lines: Map<string, number>): Validation
     }
     if (t.categoryId && !categoryIds.has(t.categoryId)) broken('transactions', t.id, `categoryId: ${t.categoryId}`);
     if (t.debtId && !debtIds.has(t.debtId)) broken('transactions', t.id, `debtId: ${t.debtId}`);
+  }
+
+  // settings: whatever they hold must at least be JSON
+  for (const x of data.settings) {
+    try {
+      JSON.parse(x.value);
+    } catch {
+      bad('settings', x.id, 'value');
+    }
   }
 
   // templates are drafts: anything may be missing, but what is set must exist

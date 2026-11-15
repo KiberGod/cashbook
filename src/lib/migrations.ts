@@ -58,6 +58,8 @@ const STEPS: Record<number, Step> = {
   6: (t) => ({ ...t, contacts: t.contacts.map((c) => ({ ...c, accountOrder: c.accountOrder ?? [] })) }),
   // what is left of a debt can be corrected later, as dated steps like an account's balance; none yet
   7: (t) => ({ ...t, debts: t.debts.map((x) => ({ ...x, adjustments: x.adjustments ?? [] })) }),
+  // settings kept in the spreadsheet (a contact's graph view, ...): a new sheet, empty at first
+  8: (t) => ({ ...t, settings: t.settings ?? [] }),
 };
 
 export function migrate(tables: RawTables, from: number): RawTables {

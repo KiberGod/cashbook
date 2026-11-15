@@ -6856,3 +6856,270 @@ body:has(.modal-backdrop:not([hidden])) .topbar::after {
   outline-offset: -2px;
   background: var(--accent-soft);
 }
+
+/* ---- the graph's settings panel (on the right, a sheet below on narrow boxes, like the transactions one) ---- */
+.ag-settings-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.ag-settings-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.ag-settings-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 14px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ag-settings-reset-view {
+  align-self: flex-start;
+}
+
+.ag-settings-reset-view svg {
+  flex-shrink: 0;
+}
+
+/* the "look" block: its options apart, each on its own */
+.ag-settings-look {
+  gap: 18px;
+}
+
+/* the cursor: its name and two small buttons, each showing its cursor */
+.ag-cursor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ag-cursor.off {
+  opacity: 0.5;
+}
+
+.ag-cursor-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+/* a two-square switch, like a small segmented control */
+.ag-cursor-btns {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.ag-cursor-opt {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.ag-cursor-opt:hover:not(:disabled):not(.chosen) {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.ag-cursor-opt:disabled {
+  cursor: default;
+}
+
+.ag-cursor-opt.chosen {
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--accent);
+}
+
+.ag-cursor-opt svg {
+  overflow: visible;
+}
+
+/* a filter folded: its header opens it */
+.ag-fold-btn {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ag-fold-chevron {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.ag-fold.open .ag-fold-chevron {
+  transform: rotate(90deg);
+}
+
+.ag-fold-sum {
+  overflow: hidden;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ag-fold-sum.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ag-check-head {
+  align-items: center;
+}
+
+.ag-settings-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ag-settings-sec + .ag-settings-sec {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.ag-settings-sec-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.ag-settings-sec-head h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ag-check {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ag-check-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.ag-check-head .muted {
+  font-weight: 400;
+}
+
+.ag-check-all {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ag-check-list {
+  max-height: 188px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.ag-check-list .multiselect-item {
+  padding-left: 8px !important;
+}
+
+.ag-period {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ag-period .dtf {
+  max-width: none;
+  flex: none;
+}
+
+/* ---- transactions as arrows on the links ---- */
+.ag-arrow {
+  pointer-events: none;
+}
+
+.ag-arrow.own {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.2;
+}
+
+.ag-arrow.other {
+  fill: var(--surface);
+  stroke: color-mix(in srgb, var(--text) 70%, transparent);
+  stroke-width: 1.3;
+}
+
+
+.ag-legend-arrow {
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 9px solid var(--accent);
+}
+
+.ag-legend-arrow.other {
+  border-left-color: color-mix(in srgb, var(--text) 55%, transparent);
+}
+
+/* in the graph's settings the switch is a plain row: no pill around it, on or off */
+.ag-settings .switch,
+.ag-settings .switch:hover,
+.ag-settings .switch.on {
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.ag-settings .switch {
+  align-self: flex-start;
+  color: var(--text);
+}

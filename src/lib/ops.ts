@@ -101,6 +101,8 @@ export function deleteContact(d: Data, id: string): Data {
   return {
     ...d,
     contacts: d.contacts.filter((c) => c.id !== id),
+    // its own settings (its graph view) go with it
+    settings: d.settings.filter((x) => x.id !== graphSettingId(id)),
     accounts: d.accounts.map((a) => (a.contactId === id ? { ...a, contactId: '', updatedAt: t } : a)),
   };
 }
@@ -353,4 +355,18 @@ export function templatePrefill(x: Template): Partial<Transaction> {
     debtId: x.debtId,
     description: x.description,
   };
+}
+
+// ---- settings kept in the spreadsheet ----
+
+/** The id of a contact's graph settings. */
+export const graphSettingId = (contactId: string) => `graph:${contactId}`;
+
+/** Sets a setting (its JSON); the same value again changes nothing (nothing to write). */
+export function saveSetting(d: Data, id: string, value: string): Data {
+  const old = d.settings.find((x) => x.id === id);
+  if (old?.value === value) return d;
+  const t = now();
+  const entity = { id, value, createdAt: old?.createdAt ?? t, updatedAt: t };
+  return { ...d, settings: old ? d.settings.map((x) => (x.id === id ? entity : x)) : [...d.settings, entity] };
 }

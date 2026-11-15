@@ -160,6 +160,15 @@ export interface Template extends Timestamps {
   order: number;
 }
 
+/**
+ * A setting kept in the spreadsheet, so it follows the user to any device (and is encrypted with
+ * everything else): `id` says what it is for (e.g. 'graph:<contactId>'), `value` is its JSON.
+ */
+export interface Setting extends Timestamps {
+  id: string;
+  value: string;
+}
+
 export interface Data {
   assets: Asset[];
   services: Service[];
@@ -169,10 +178,11 @@ export interface Data {
   transactions: Transaction[];
   debts: Debt[];
   templates: Template[];
+  settings: Setting[];
 }
 
 export type EntityKind = keyof Data;
-export const ENTITY_KINDS: EntityKind[] = ['assets', 'services', 'contacts', 'accounts', 'categories', 'transactions', 'debts', 'templates'];
+export const ENTITY_KINDS: EntityKind[] = ['assets', 'services', 'contacts', 'accounts', 'categories', 'transactions', 'debts', 'templates', 'settings'];
 
 export const EMPTY_DATA: Data = {
   assets: [],
@@ -183,6 +193,7 @@ export const EMPTY_DATA: Data = {
   transactions: [],
   debts: [],
   templates: [],
+  settings: [],
 };
 
 export const LIMITS = {
